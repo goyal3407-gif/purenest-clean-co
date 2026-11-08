@@ -12,12 +12,23 @@ const PORT = process.env.PORT || 3000;
 const DATA = path.join(__dirname, 'data');
 fs.mkdirSync(DATA, { recursive: true });
 const db = require('./db');
-db.connect(); // MongoDB Atlas when MONGODB_URI is set, JSON files otherwise (non-blocking)
+// NOTE: do NOT call db.connect() fire-and-forget here. On Vercel each
+// request can be a fresh serverless container, so a background connect
+// races every handler and always loses — /health then always reports
+// "json" even when Atlas is reachable. Instead the /api middleware below
+// awaits db.ensureMongo() (cached promise, one retry) on first API use.
 app.use(express.json({ limit: '1mb' }));
 // Serve the React (Vite) build when it exists, otherwise the legacy public/ folder.
 const DIST = path.join(__dirname, 'frontend', 'dist');
 const STATIC_DIR = fs.existsSync(path.join(DIST, 'index.html')) ? DIST : path.join(__dirname, 'public');
 app.use(express.static(STATIC_DIR));
+// Ensure the MongoDB connection before any /api handler runs. Awaiting the
+// cached promise is fast on warm containers (already connected) and ~1-3s
+// on a cold start when Atlas is reachable; on failure it falls back to
+// local JSON storage instead of hanging the request.
+app.use('/api', async (req, res, next) => { try { await db.ensureMongo(); } catch { /* fallback to JSON */ } next(); });
+// DB status (diagnostics only — lastError is a message, never the URI/password)
+app.get('/api/db-status', async (req, res) => { try { await db.ensureMongo(); } catch { /* report status below */ } res.json({ ok: true, service: 'purenest-clean-co', ...db.getStatus() }); });
 
 function load(name, fallback) {
   const f = path.join(DATA, name);
@@ -28,6 +39,9 @@ function save(name, data) {
 }
 function uid(prefix) { return prefix + '-' + Date.now().toString(36) + '-' + crypto.randomBytes(3).toString('hex'); }
 function token() { return crypto.randomBytes(24).toString('hex'); }
+// Wrap async handlers so a rejected promise reaches the error handler
+// instead of hanging the request (Express 4 does not catch async errors).
+const ah = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 // In-memory admin sessions (token -> createdAt)
 const sessions = new Map();
@@ -74,15 +88,18 @@ async function sendWhatsApp(booking) {
 
 // ---------- Bookings ----------
 app.post('/api/bookings', async (req, res) => {
+  try {
   const b = req.body || {};
   if (!b.name || !b.phone || !b.serviceId || !b.date) return res.status(400).json({ ok: false, error: 'Name, phone, service and date are required' });
+  if (typeof b.name !== 'string' || typeof b.phone !== 'string' || b.name.length > 100 || b.phone.length > 30) return res.status(400).json({ ok: false, error: 'Name or phone is invalid' });
   const svc = SERVICES.find(s => s.id === b.serviceId) || { name: b.serviceId, price: 0 };
+  const totalNum = Number(b.total);
   const booking = {
     id: uid('PN'), accessToken: token(), createdAt: new Date().toISOString(),
     name: b.name, phone: b.phone, email: b.email || '', address: b.address || '',
     serviceId: b.serviceId, serviceName: svc.name, date: b.date, time: b.time || '10:00',
     bedrooms: Number(b.bedrooms || 2), bathrooms: Number(b.bathrooms || 1),
-    extras: b.extras || [], frequency: b.frequency || 'one-time', total: Number(b.total || svc.price),
+    extras: Array.isArray(b.extras) ? b.extras.filter((x) => typeof x === 'string').slice(0, 20) : [], frequency: b.frequency || 'one-time', total: Number.isFinite(totalNum) && totalNum >= 0 ? totalNum : svc.price,
     payment: b.payment || 'cash', status: 'confirmed', notes: b.notes || '',
     eco: !!b.eco, allergy: !!b.allergy, senior: !!b.senior, whatsapp_status: 'pending', whatsapp_detail: '', whatsapp_message_id: null,
   };
@@ -90,26 +107,27 @@ app.post('/api/bookings', async (req, res) => {
   booking.whatsapp_status = wa.status; booking.whatsapp_detail = wa.detail; booking.whatsapp_message_id = wa.messageId || null;
   await db.saveBooking(booking);
   res.json({ ok: true, booking: { ...booking, accessToken: booking.accessToken } });
+  } catch (e) { console.error('POST /api/bookings failed:', e.message); res.status(500).json({ ok: false, error: 'Could not save booking, please try again' }); }
 });
-app.get('/api/bookings/:id', async (req, res) => {
+app.get('/api/bookings/:id', ah(async (req, res) => {
   const b = await db.getBooking(req.params.id);
   if (!b) return res.status(404).json({ ok: false, error: 'Booking not found' });
   if (req.query.token !== b.accessToken) return res.status(403).json({ ok: false, error: 'Access token required' });
   res.json({ ok: true, booking: b });
-});
-app.post('/api/bookings/:id/cancel', async (req, res) => {
+}));
+app.post('/api/bookings/:id/cancel', ah(async (req, res) => {
   const b = await db.getBooking(req.params.id);
   if (!b || req.body?.token !== b.accessToken) return res.status(403).json({ ok: false, error: 'Not allowed' });
   const updated = await db.updateBooking(req.params.id, { status: 'cancelled' });
   res.json({ ok: true, booking: updated });
-});
-app.post('/api/bookings/:id/resend-whatsapp', requireAdmin, async (req, res) => {
+}));
+app.post('/api/bookings/:id/resend-whatsapp', requireAdmin, ah(async (req, res) => {
   const b = await db.getBooking(req.params.id);
   if (!b) return res.status(404).json({ ok: false, error: 'Booking not found' });
   const wa = await sendWhatsApp(b);
   const updated = await db.updateBooking(req.params.id, { whatsapp_status: wa.status, whatsapp_detail: wa.detail, whatsapp_message_id: wa.messageId || null });
   res.json({ ok: true, booking: updated });
-});
+}));
 
 // ---------- Reviews / inquiries / waitlist / subscriptions ----------
 const SEED_REVIEWS = [
@@ -117,30 +135,31 @@ const SEED_REVIEWS = [
   { name: 'Rahul S.', rating: 5, text: 'On time, polite team, great price. Booked weekly now.', service: 'Regular Home Cleaning' },
   { name: 'Sara K.', rating: 5, text: 'Airbnb turnover was fast and the photos helped a lot.', service: 'Airbnb Turnover' },
 ];
-app.get('/api/reviews', async (req, res) => res.json({ ok: true, reviews: await db.listReviews(SEED_REVIEWS) }));
-app.post('/api/reviews', async (req, res) => {
+app.get('/api/reviews', ah(async (req, res) => res.json({ ok: true, reviews: await db.listReviews(SEED_REVIEWS) })));
+app.post('/api/reviews', ah(async (req, res) => {
   const r = req.body || {}; if (!r.name || !r.text) return res.status(400).json({ ok: false, error: 'Name and review required' });
-  await db.addReview({ name: r.name, rating: Number(r.rating || 5), text: r.text, service: r.service || '', createdAt: new Date().toISOString() });
+  const rating = Math.min(5, Math.max(1, Number(r.rating) || 5));
+  await db.addReview({ name: String(r.name).slice(0, 100), rating, text: String(r.text).slice(0, 1000), service: String(r.service || '').slice(0, 100), createdAt: new Date().toISOString() });
   res.json({ ok: true });
-});
-app.post('/api/inquiries', async (req, res) => {
+}));
+app.post('/api/inquiries', ah(async (req, res) => {
   const body = req.body || {};
   if (body.kind === 'callback' || body.phone) await db.addCallback({ ...body, id: uid('CB'), createdAt: new Date().toISOString() });
   else await db.addDoc('inquiry', { ...body, id: uid('INQ'), createdAt: new Date().toISOString() });
   res.json({ ok: true, message: 'Thanks! We will call you back shortly.' });
-});
-app.post('/api/waitlist', async (req, res) => {
+}));
+app.post('/api/waitlist', ah(async (req, res) => {
   await db.addDoc('waitlist', { ...req.body, id: uid('WL'), createdAt: new Date().toISOString() });
   res.json({ ok: true, message: 'Added to the waitlist — we will notify you when a slot opens.' });
-});
-app.post('/api/subscriptions', async (req, res) => {
+}));
+app.post('/api/subscriptions', ah(async (req, res) => {
   await db.addDoc('subscription', { ...req.body, id: uid('SUB'), status: 'active', createdAt: new Date().toISOString() });
   res.json({ ok: true, message: 'Subscription started. You can pause anytime from My Bookings.' });
-});
-app.post('/api/claims', async (req, res) => {
+}));
+app.post('/api/claims', ah(async (req, res) => {
   await db.addDoc('claim', { ...req.body, id: uid('CLM'), status: 'open', createdAt: new Date().toISOString() });
   res.json({ ok: true, message: 'Claim filed. Our team will contact you within 24 hours.' });
-});
+}));
 
 // ---------- AI plan + AI support chat ----------
 app.post('/api/ai-plan', (req, res) => {
@@ -160,7 +179,7 @@ const BUILTIN_ANSWERS = [
   [/cancel|refund/i, 'You can cancel a booking from My Bookings with your booking ID. Cancellations up to 12 hours before are free.'],
   [/eco|chemical|baby|pet/i, 'Yes — choose Eco-Clean for chemical-free, pet-safe and baby-safe products, and Allergy Mode for a dust-free anti-allergen clean.'],
 ];
-app.post('/api/ai-chat', async (req, res) => {
+app.post('/api/ai-chat', ah(async (req, res) => {
   const q = String(req.body?.message || '');
   const key = process.env.GEMINI_API_KEY;
   if (key) {
@@ -176,7 +195,7 @@ app.post('/api/ai-chat', async (req, res) => {
   }
   const hit = BUILTIN_ANSWERS.find(([re]) => re.test(q));
   res.json({ ok: true, reply: hit ? hit[1] : 'I can help with pricing, booking, eco/allergy cleaning, cancellations and WhatsApp contact. Ask about any of those, or use the booking form.', source: 'built-in' });
-});
+}));
 
 // ---------- Admin ----------
 app.get('/api/admin/setup-status', (req, res) => res.json({ ok: true, setupComplete: adminConfigured() }));
@@ -186,18 +205,21 @@ app.post('/api/admin/login', (req, res) => {
   const t = token(); sessions.set(t, Date.now()); res.json({ ok: true, token: t });
 });
 app.post('/api/admin/logout', (req, res) => { sessions.delete(req.body?.token || ''); res.json({ ok: true }); });
-app.get('/api/admin/stats', requireAdmin, async (req, res) => {
+app.get('/api/admin/stats', requireAdmin, ah(async (req, res) => {
   const bookings = await db.listBookings(); const reviews = await db.listReviews(SEED_REVIEWS);
   const revenue = bookings.filter(b => b.status !== 'cancelled').reduce((s, b) => s + (b.total || 0), 0);
   res.json({ ok: true, stats: { bookings: bookings.length, revenue, reviews: reviews.length, avgRating: reviews.length ? (reviews.reduce((s, r) => s + (r.rating || 5), 0) / reviews.length).toFixed(1) : '5.0', whatsappSent: bookings.filter(b => b.whatsapp_status === 'sent').length } });
-});
-app.get('/api/admin/bookings', requireAdmin, async (req, res) => res.json({ ok: true, bookings: (await db.listBookings()).slice().reverse() }));
-app.post('/api/admin/bookings/:id/status', requireAdmin, async (req, res) => {
+}));
+app.get('/api/admin/bookings', requireAdmin, ah(async (req, res) => res.json({ ok: true, bookings: (await db.listBookings()).slice().reverse() })));
+app.post('/api/admin/bookings/:id/status', requireAdmin, ah(async (req, res) => {
   const b = await db.getBooking(req.params.id);
   if (!b) return res.status(404).json({ ok: false, error: 'Not found' });
-  const updated = await db.updateBooking(req.params.id, { status: req.body?.status || b.status });
+  const allowed = ['confirmed', 'assigned', 'completed', 'cancelled'];
+  const status = req.body?.status;
+  if (!allowed.includes(status)) return res.status(400).json({ ok: false, error: `Status must be one of: ${allowed.join(', ')}` });
+  const updated = await db.updateBooking(req.params.id, { status });
   res.json({ ok: true, booking: updated });
-});
+}));
 app.get('/api/admin/settings', requireAdmin, (req, res) => res.json({ ok: true, settings: {
   ownerWhatsapp: process.env.OWNER_WHATSAPP || '917876520226',
   phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID ? '*** set ***' : '',
@@ -205,24 +227,33 @@ app.get('/api/admin/settings', requireAdmin, (req, res) => res.json({ ok: true, 
   template: process.env.WHATSAPP_TEMPLATE || 'booking_notification',
   configured: !!(process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_ACCESS_TOKEN),
 }}));
-app.get('/api/invoice/:id', async (req, res) => {
+app.get('/api/invoice/:id', ah(async (req, res) => {
   const b = await db.getBooking(req.params.id);
   if (!b) return res.status(404).send('Booking not found');
-  res.type('html').send(`<html><body style="font-family:sans-serif;padding:32px"><h1>PureNest Clean Co. — Invoice</h1><p>Booking ${b.id} | ${b.name} | ${b.date} ${b.time}</p><p>${b.serviceName} — AED ${b.total}</p><p>Payment: ${b.payment}</p><p><small>By Goyal Kumar</small></p></body></html>`);
-});
-app.get('/api/calendar/:id.ics', async (req, res) => {
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  res.type('html').send(`<html><body style="font-family:sans-serif;padding:32px"><h1>PureNest Clean Co. — Invoice</h1><p>Booking ${esc(b.id)} | ${esc(b.name)} | ${esc(b.date)} ${esc(b.time)}</p><p>${esc(b.serviceName)} — AED ${esc(b.total)}</p><p>Payment: ${esc(b.payment)}</p><p><small>By Goyal Kumar</small></p></body></html>`);
+}));
+app.get('/api/calendar/:id.ics', ah(async (req, res) => {
   const b = await db.getBooking(req.params.id.replace('.ics', ''));
   if (!b) return res.status(404).send('Booking not found');
   const dt = (b.date || '2026-11-10').replace(/-/g, '') + 'T100000';
   res.type('text/calendar').send(`BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nUID:${b.id}@purenest\nDTSTART:${dt}\nSUMMARY:PureNest Cleaning - ${b.serviceName}\nLOCATION:${b.address}\nEND:VEVENT\nEND:VCALENDAR`);
-});
+}));
 // Staff view (code from env)
-app.post('/api/staff/jobs', async (req, res) => {
+app.post('/api/staff/jobs', ah(async (req, res) => {
   if (!process.env.STAFF_CODE || req.body?.code !== process.env.STAFF_CODE) return res.status(401).json({ ok: false, error: 'Wrong staff code' });
   res.json({ ok: true, jobs: (await db.listBookings()).filter(b => b.status === 'confirmed') });
-});
+}));
 
-app.get('/health', (req, res) => res.json({ ok: true, service: 'purenest-clean-co', db: db.isMongo() ? 'mongodb' : 'json' }));
+app.get('/health', async (req, res) => {
+  // Await the cached connection attempt so this is an accurate report,
+  // not a race with a background connect (the old bug: always "json").
+  try { await db.ensureMongo(); } catch { /* report status below */ }
+  res.json({ ok: true, service: 'purenest-clean-co', ...db.getStatus() });
+});
+// Global error handler: async route rejections must not crash the server
+// or hang the request (Express 4 does not catch them by default).
+app.use((err, req, res, next) => { console.error('Unhandled error:', err && err.message); if (res.headersSent) return next(err); res.status(500).json({ ok: false, error: 'Something went wrong, please try again' }); });
 module.exports = app; // used by Vercel serverless (api/index.js) — listen only when run directly
 // SPA fallback: React Router handles all non-/api routes (/, /admin, ...)
 app.get('*', (req, res, next) => {

@@ -55,21 +55,84 @@ const Subscription = mongoose.models.Subscription || mongoose.model('Subscriptio
 const Claim = mongoose.models.Claim || mongoose.model('Claim', claimSchema);
 
 let mongoReady = false;
-async function connect() {
+let lastError = null; // error MESSAGE only — never the URI or password
+let connectPromise = null;
+let lastAttemptAt = 0;
+const CONNECT_OPTS = {
+  serverSelectionTimeoutMS: 15000,
+  connectTimeoutMS: 15000,
+  socketTimeoutMS: 30000,
+  family: 4, // Atlas free tier has no IPv6; force IPv4 so Vercel's IPv6-capable runtime can't pick an unreachable IPv6 address
+};
+function sanitizeError(e) {
+  // Strip any URI/credential that could ever appear in an error message.
+  let m = String((e && e.message) || e || 'Unknown MongoDB error');
+  m = m.replace(/mongodb(\+srv)?:\/\/[^\s'"]+/gi, 'mongodb://[redacted]');
+  return m.slice(0, 500);
+}
+async function tryConnectOnce() {
   const uri = process.env.MONGODB_URI;
-  if (!uri) { console.log('MongoDB: MONGODB_URI not set — using local JSON storage in data/'); return false; }
-  try {
-    await mongoose.connect(uri, { serverSelectionTimeoutMS: 8000 });
-    mongoReady = true;
-    console.log('MongoDB: connected to Atlas (MONGODB_URI)');
-    return true;
-  } catch (e) {
-    mongoReady = false;
-    console.log('MongoDB: connection failed, falling back to local JSON storage:', e.message);
-    return false;
+  if (!uri) return false;
+  // If a previous attempt left mongoose half-connected, reset it first.
+  if (mongoose.connection.readyState === 2 || mongoose.connection.readyState === 3) {
+    try { await mongoose.disconnect(); } catch { /* ignore */ }
   }
+  await mongoose.connect(uri, CONNECT_OPTS);
+  mongoReady = true;
+  lastError = null;
+  console.log('MongoDB: connected to Atlas (MONGODB_URI)');
+  return true;
+}
+// One cached attempt, retried once on failure. The cached promise means
+// concurrent serverless requests share a single connection attempt instead
+// of each opening its own, and a failed attempt is not retried hammer-style:
+// a fresh attempt is allowed only 30s after the last one failed.
+async function connect() {
+  if (isMongo()) return true;
+  if (connectPromise) return connectPromise;
+  const uri = process.env.MONGODB_URI;
+  if (!uri) { if (!connect._noUriLogged) { connect._noUriLogged = true; console.log('MongoDB: MONGODB_URI not set — using local JSON storage in data/'); } return false; }
+  if (Date.now() - lastAttemptAt < 30000 && lastError) return false;
+  lastAttemptAt = Date.now();
+  connectPromise = (async () => {
+    try {
+      return await tryConnectOnce();
+    } catch (e) {
+      lastError = sanitizeError(e);
+      mongoReady = false;
+      console.log('MongoDB: connection attempt 1 failed, retrying once:', lastError);
+      try {
+        await new Promise((r) => setTimeout(r, 1000));
+        return await tryConnectOnce();
+      } catch (e2) {
+        lastError = sanitizeError(e2);
+        mongoReady = false;
+        console.log('MongoDB: connection failed, falling back to local JSON storage:', lastError);
+        return false;
+      }
+    } finally {
+      connectPromise = null;
+    }
+  })();
+  return connectPromise;
+}
+// Lazily ensure a connection on first API use (Vercel serverless: every
+// cold start is a fresh container, so a fire-and-forget connect() at
+// startup races every handler and always loses — handlers must await this).
+async function ensureMongo() {
+  if (isMongo()) return true;
+  try { return await connect(); } catch { return false; }
 }
 function isMongo() { return mongoReady && mongoose.connection.readyState === 1; }
+function getStatus() {
+  return {
+    db: isMongo() ? 'mongodb' : 'json',
+    mongoReady: isMongo(),
+    readyState: mongoose.connection.readyState,
+    uriConfigured: !!process.env.MONGODB_URI,
+    lastError,
+  };
+}
 
 // ---------- Store: Mongo when connected, JSON files otherwise ----------
 const toObj = (d) => (d && typeof d.toObject === 'function' ? d.toObject() : d);
@@ -92,13 +155,20 @@ async function updateBooking(id, patch) {
   const all = load('bookings.json', []); const b = all.find((x) => x.id === id);
   if (!b) return null; Object.assign(b, patch); save('bookings.json', all); return b;
 }
+let seedReviews = null; // remembered from listReviews() so first write keeps seeds
 async function listReviews(fallback) {
+  if (fallback) seedReviews = fallback;
   if (isMongo()) { const r = await Review.find({}).lean(); return r.length ? r.map(strip) : fallback; }
-  return load('reviews.json', fallback);
+  const file = load('reviews.json', null);
+  return file === null ? fallback : file;
 }
 async function addReview(review) {
   if (isMongo()) { await Review.create(review); return; }
-  const all = load('reviews.json', []); all.push(review); save('reviews.json', all);
+  // Seed reviews are the fallback when no file exists; preserve them on
+  // first write, otherwise the first user review would wipe the seeds.
+  const all = load('reviews.json', null);
+  const list = Array.isArray(all) ? all : (seedReviews ? [...seedReviews] : []);
+  list.push(review); save('reviews.json', list);
 }
 async function addDoc(kind, doc) {
   const file = { inquiry: 'inquiries.json', waitlist: 'waitlist.json', subscription: 'subscriptions.json', claim: 'claims.json' }[kind];
@@ -114,7 +184,7 @@ async function addCallback(doc) {
 }
 
 module.exports = {
-  connect, isMongo, load, save,
+  connect, ensureMongo, isMongo, getStatus, getLastError: () => lastError, load, save,
   listBookings, getBooking, saveBooking, updateBooking,
   listReviews, addReview, addDoc, addCallback,
   models: { Booking, Review, Inquiry, Waitlist, Callback, Subscription, Claim },
