@@ -25,16 +25,25 @@ const T = {
     book: 'Book Now',
     heroTitle: 'A cleaner home, without the hassle.',
     heroSub: 'Professional cleaning in Dubai, Abu Dhabi, Riyadh & Doha. Instant price, online booking, same-day slots and WhatsApp updates.',
+    servicesHeading: 'Cleaning for every home, office & stay',
+    bookingHeading: 'Book in 2 minutes',
+    myBookingsHeading: 'Track, manage & rebook',
   },
   hi: {
     book: 'अभी बुक करें',
     heroTitle: 'साफ़ घर, बिना झंझट।',
     heroSub: 'दुबई, अबू धाबी, रियाद और दोहा में प्रोफ़ेशनल सफ़ाई। तुरंत कीमत, ऑनलाइन बुकिंग और WhatsApp अपडेट।',
+    servicesHeading: 'हर घर, ऑफिस और ठहरने के लिए सफ़ाई',
+    bookingHeading: '2 मिनट में बुक करें',
+    myBookingsHeading: 'ट्रैक करें, मैनेज करें और फिर से बुक करें',
   },
   ur: {
     book: 'ابھی بک کریں',
     heroTitle: 'صاف گھر، بغیر کسی پریشانی کے۔',
     heroSub: 'دبئی، ابوظہبی، ریاض اور دوحہ میں پیشہ ورانہ صفائی۔ فوری قیمت، آن لائن بکنگ اور واٹس ایپ اپڈیٹس۔',
+    servicesHeading: 'ہر گھر، دفتر اور قیام کے لیے صفائی',
+    bookingHeading: '2 منٹ میں بک کریں',
+    myBookingsHeading: 'ٹریک کریں، منظم کریں اور دوبارہ بک کریں',
   },
 }
 
@@ -62,10 +71,10 @@ function Home({ t }) {
     <>
       <Hero t={t} />
       <Estimator services={services} onBook={onBook} />
-      <Services services={services} onBook={onBook} />
+      <Services services={services} onBook={onBook} t={t} />
       <HowItWorks />
-      <BookingForm key={preset ? JSON.stringify(preset) : 'fresh'} services={services} preset={preset} onBooked={setLastBooking} />
-      <MyBookings lastBooking={lastBooking} />
+      <BookingForm key={preset ? JSON.stringify(preset) : 'fresh'} services={services} preset={preset} onBooked={setLastBooking} t={t} />
+      <MyBookings lastBooking={lastBooking} t={t} />
       <Tracking />
       <BeforeAfter />
       <AiPlan />

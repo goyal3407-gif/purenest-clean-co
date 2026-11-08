@@ -1,17 +1,6 @@
 import { useMemo, useState } from 'react'
 import { money } from '../api'
-
-const EXTRAS = [
-  { id: 'oven', name: 'Inside Oven', price: 49 },
-  { id: 'fridge', name: 'Inside Fridge', price: 49 },
-  { id: 'windows', name: 'Window Cleaning', price: 59 },
-  { id: 'laundry', name: 'Laundry & Ironing', price: 79 },
-  { id: 'pet', name: 'Pet Hair Removal', price: 39 },
-  { id: 'balcony', name: 'Balcony & Outdoor', price: 39 },
-  { id: 'carpet', name: 'Carpet Shampoo', price: 89 },
-  { id: 'sofa', name: 'Sofa Cleaning', price: 99 },
-]
-const FREQUENCY = { 'one-time': 1, weekly: 0.85, fortnightly: 0.9, monthly: 0.95 }
+import { EXTRAS, calcPrice } from '../pricing'
 
 export default function Estimator({ services, onBook }) {
   const [serviceId, setServiceId] = useState('deep')
@@ -25,14 +14,8 @@ export default function Estimator({ services, onBook }) {
   const [couponMsg, setCouponMsg] = useState('')
 
   const svc = services.find((s) => s.id === serviceId) || services[0] || { price: 249, name: 'Deep Cleaning' }
-  const calc = useMemo(() => {
-    const base = svc.price + (bedrooms - 1) * 30 + (bathrooms - 1) * 20
-    const extrasTotal = EXTRAS.filter((e) => extras.includes(e.id)).reduce((s, e) => s + e.price, 0)
-    const sub = (base + extrasTotal) * FREQUENCY[frequency]
-    let total = sub
-    if (coupon.trim().toUpperCase() === 'FIRST20') total = sub * 0.8
-    return { base, extrasTotal, sub: Math.round(sub), total: Math.round(total), saved: Math.round(sub - total) }
-  }, [svc, bedrooms, bathrooms, frequency, extras, coupon])
+  // Single shared pricing logic (see pricing.js) — BookingForm uses the same calc.
+  const calc = useMemo(() => calcPrice(svc.price, { bedrooms, bathrooms, frequency, extras, coupon }), [svc, bedrooms, bathrooms, frequency, extras, coupon])
 
   const toggle = (id) => setExtras((x) => (x.includes(id) ? x.filter((e) => e !== id) : [...x, id]))
   const applyCoupon = () => setCouponMsg(coupon.trim().toUpperCase() === 'FIRST20' ? 'FIRST20 applied — 20% off!' : 'That coupon is not valid. Try FIRST20 for 20% off.')
@@ -86,7 +69,7 @@ export default function Estimator({ services, onBook }) {
                 <button className="btn ghost" type="button" onClick={applyCoupon}>Apply</button>
               </div>
               {couponMsg && <p className="note" style={{ marginTop: 10 }}>{couponMsg}</p>}
-              <button className="btn" style={{ width: '100%', marginTop: 16 }} onClick={() => onBook({ serviceId, bedrooms, bathrooms, frequency, extras, total: calc.total, eco, allergy })}>Book this clean — AED {calc.total}</button>
+              <button className="btn" style={{ width: '100%', marginTop: 16 }} onClick={() => onBook({ serviceId, bedrooms, bathrooms, frequency, extras, total: calc.total, coupon, eco, allergy })}>Book this clean — AED {calc.total}</button>
             </div>
             <div className="card" style={{ marginTop: 20 }}>
               <h3>Live price comparison</h3>

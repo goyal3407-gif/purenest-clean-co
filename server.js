@@ -65,6 +65,23 @@ const SERVICES = [
 ];
 app.get('/api/services', (req, res) => res.json({ ok: true, services: SERVICES }));
 
+// ---------- Pricing (must match frontend/src/pricing.js) ----------
+// base = service price + AED 30 per extra bedroom (beyond 1) + AED 20 per extra
+// bathroom (beyond 1); extras at list price; frequency discount; FIRST20 -20%;
+// senior -10%. Deep Cleaning 3 bed / 2 bath = 249 + 60 + 20 = AED 329.
+const EXTRAS_PRICES = { oven: 49, fridge: 49, windows: 59, laundry: 79, pet: 39, balcony: 39, carpet: 89, sofa: 99 };
+const FREQUENCY_FACTOR = { 'one-time': 1, weekly: 0.85, fortnightly: 0.9, monthly: 0.95 };
+function calcBookingTotal(svc, b) {
+  const bed = Math.max(1, Number(b.bedrooms) || 1);
+  const bath = Math.max(1, Number(b.bathrooms) || 1);
+  const base = Number(svc.price || 0) + (bed - 1) * 30 + (bath - 1) * 20;
+  const extrasTotal = (Array.isArray(b.extras) ? b.extras : []).filter((x) => EXTRAS_PRICES[x]).reduce((s, x) => s + EXTRAS_PRICES[x], 0);
+  let total = (base + extrasTotal) * (FREQUENCY_FACTOR[b.frequency] || 1);
+  if (String(b.coupon || '').trim().toUpperCase() === 'FIRST20') total *= 0.8;
+  if (b.senior) total *= 0.9;
+  return Math.round(total);
+}
+
 // ---------- WhatsApp ----------
 async function sendWhatsApp(booking) {
   const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
@@ -93,14 +110,16 @@ app.post('/api/bookings', async (req, res) => {
   if (!b.name || !b.phone || !b.serviceId || !b.date) return res.status(400).json({ ok: false, error: 'Name, phone, service and date are required' });
   if (typeof b.name !== 'string' || typeof b.phone !== 'string' || b.name.length > 100 || b.phone.length > 30) return res.status(400).json({ ok: false, error: 'Name or phone is invalid' });
   const svc = SERVICES.find(s => s.id === b.serviceId) || { name: b.serviceId, price: 0 };
-  const totalNum = Number(b.total);
+  // Server recomputes the total from the same pricing rules as the frontend,
+  // so a stale/wrong client total can never be stored.
+  const total = calcBookingTotal(svc, b);
   const booking = {
     id: uid('PN'), accessToken: token(), createdAt: new Date().toISOString(),
     name: b.name, phone: b.phone, email: b.email || '', address: b.address || '',
     serviceId: b.serviceId, serviceName: svc.name, date: b.date, time: b.time || '10:00',
     bedrooms: Number(b.bedrooms || 2), bathrooms: Number(b.bathrooms || 1),
-    extras: Array.isArray(b.extras) ? b.extras.filter((x) => typeof x === 'string').slice(0, 20) : [], frequency: b.frequency || 'one-time', total: Number.isFinite(totalNum) && totalNum >= 0 ? totalNum : svc.price,
-    payment: b.payment || 'cash', status: 'confirmed', notes: b.notes || '',
+    extras: Array.isArray(b.extras) ? b.extras.filter((x) => typeof x === 'string').slice(0, 20) : [], frequency: b.frequency || 'one-time', total,
+    payment: b.payment || 'cash', status: 'confirmed', notes: b.notes || '', coupon: String(b.coupon || '').trim().toUpperCase() || '',
     eco: !!b.eco, allergy: !!b.allergy, senior: !!b.senior, whatsapp_status: 'pending', whatsapp_detail: '', whatsapp_message_id: null,
   };
   const wa = await sendWhatsApp(booking);
@@ -157,6 +176,8 @@ app.post('/api/subscriptions', ah(async (req, res) => {
   res.json({ ok: true, message: 'Subscription started. You can pause anytime from My Bookings.' });
 }));
 app.post('/api/claims', ah(async (req, res) => {
+  const r = req.body || {};
+  if (!r.name || !r.details) return res.status(400).json({ ok: false, error: 'Name and claim details are required' });
   await db.addDoc('claim', { ...req.body, id: uid('CLM'), status: 'open', createdAt: new Date().toISOString() });
   res.json({ ok: true, message: 'Claim filed. Our team will contact you within 24 hours.' });
 }));
