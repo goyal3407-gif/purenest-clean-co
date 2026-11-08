@@ -19,10 +19,11 @@ async function api(path, opts) { const r = await fetch(path, { headers: { 'Conte
 async function loadServices(filter = '', cat = '') {
   SERVICES = (await api('/api/services')).services || [];
   const list = $('#services'); if (!list) return;
+  const icons = { deep: '<path d="M12 3l2.5 5.5L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5z"/>', regular: '<path d="M3 12h18M5 6h14M7 18h10"/>', move: '<path d="M3 11l9-7 9 7M5 10v10h14V10"/>', reno: '<path d="M14 7l3 3L8 19H5v-3zM13 6l5 5"/>', airbnb: '<path d="M3 11l9-7 9 7M5 10v10h5v-6h4v6h5V10"/>', office: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h8M8 13h8M8 17h5"/>', pet: '<circle cx="12" cy="12" r="3"/><circle cx="7" cy="8" r="1.6"/><circle cx="17" cy="8" r="1.6"/><circle cx="6" cy="13" r="1.6"/><circle cx="18" cy="13" r="1.6"/>', car: '<path d="M5 12l1.5-4.5A2 2 0 0 1 8.4 6h7.2a2 2 0 0 1 1.9 1.5L19 12M5 12v5h2v-2h10v2h2v-5M5 12h14"/>' };
   list.innerHTML = SERVICES.filter(s => (!cat || s.category === cat) && (s.name + s.desc).toLowerCase().includes(filter.toLowerCase())).map(s => `
-    <div class="card"><span class="pill">${s.tag || s.category}</span><h3>${s.name}</h3><p>${s.desc}</p>
-    <p><b>AED ${s.price}</b> ${s.unit}</p>
-    <button class="btn" onclick="bookService('${s.id}')">Book ${s.name}</button></div>`).join('') || '<p>No services match.</p>';
+    <div class="card"><div class="service-icon"><svg viewBox="0 0 24 24">${icons[s.id] || icons.regular}</svg></div>${s.tag ? `<span class="pill">${s.tag}</span>` : ''}<h3>${s.name}</h3><p>${s.desc}</p>
+    <p class="service-price"><b>AED ${s.price}</b> <span class="unit">/ ${s.unit.replace(/^per\s+/, '')}</span></p>
+    <button class="btn" onclick="bookService('${s.id}')">Book ${s.name}</button></div>`).join('') || '<p>No services match. Try a different search.</p>';
 }
 function bookService(id) { const el = $('#bookingService'); if (el) el.value = id; document.querySelector('#booking')?.scrollIntoView({ behavior: 'smooth' }); updateSummary(); }
 // Estimator
@@ -39,13 +40,21 @@ function estimate() {
   const code = ($('#coupon')?.value || '').trim().toUpperCase();
   if (code === 'FIRST20') total *= 0.8;
   total = Math.round(total);
-  const out = $('#estTotal'); if (out) out.textContent = 'AED ' + total + (code === 'FIRST20' ? ' (FIRST20 applied)' : '');
+  const base = svc.price + (bed - 1) * 30 + (bath - 1) * 20 + extras.reduce((a, b) => a + b, 0) + (eco ? 20 : 0) + (allergy ? 25 : 0);
+  const out = $('#estTotal'); if (out) out.textContent = 'AED ' + total;
+  const was = $('#estWas'), save = $('#estSave');
+  if (was && save) {
+    if (total < base) { was.textContent = 'AED ' + Math.round(base); was.classList.remove('hidden'); save.textContent = 'You save AED ' + Math.round(base - total); save.classList.remove('hidden'); }
+    else { was.classList.add('hidden'); save.classList.add('hidden'); }
+  }
   return total;
 }
 function updateSummary() {
   const total = estimate();
   const s = $('#bookingSummary'); if (!s) return;
-  s.innerHTML = `<b>Service:</b> ${$('#bookingService')?.selectedOptions?.[0]?.text || ''}<br><b>Date:</b> ${$('#bookDate')?.value || '-'} ${$('#bookTime')?.value || ''}<br><b>Bedrooms:</b> ${$('#bookBed')?.value || 2} · <b>Bathrooms:</b> ${$('#bookBath')?.value || 1}<br><b>Total:</b> AED ${total}`;
+  const dateVal = $('#bookDate')?.value;
+  const dateText = dateVal ? new Date(dateVal + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : 'Select a date';
+  s.innerHTML = `<div class="row"><span>Service</span><span>${$('#bookingService')?.selectedOptions?.[0]?.text || ''}</span></div><div class="row"><span>Date</span><span>${dateText}${dateVal ? ' · ' + ($('#bookTime')?.value || '') : ''}</span></div><div class="row"><span>Home</span><span>${$('#bookBed')?.value || 2} bedrooms · ${$('#bookBath')?.value || 1} bathrooms</span></div><div class="row total"><span>Total</span><span>AED ${total}</span></div>`;
   const t = $('#bookTotal'); if (t) t.value = total;
 }
 async function submitBooking(e) {
@@ -56,11 +65,12 @@ async function submitBooking(e) {
   if (!r.ok) { out.textContent = 'Error: ' + (r.error || 'booking failed'); return; }
   const b = r.booking;
   localStorage.setItem('purenest_last_booking', JSON.stringify({ id: b.id, token: b.accessToken }));
-  out.innerHTML = `<b>Booking confirmed!</b> ID: ${b.id}<br>WhatsApp: ${b.whatsapp_detail || b.whatsapp_status}<br><a href="/api/calendar/${b.id}.ics">Add to calendar (.ics)</a> · <a href="/api/invoice/${b.id}" target="_blank">Download invoice</a><br>Save your booking ID to track it in My Bookings.`;
+  out.innerHTML = `<div class="success"><b>Booking confirmed!</b><br>Booking ID: <b>${b.id}</b><br>WhatsApp: ${b.whatsapp_detail || b.whatsapp_status}<br><a href="/api/calendar/${b.id}.ics">Add to calendar (.ics)</a> · <a href="/api/invoice/${b.id}" target="_blank">Download invoice</a><br>Save your booking ID to track it in My Bookings.</div>`;
 }
 async function loadReviews() {
   const r = await api('/api/reviews'); const el = $('#reviews'); if (!el) return;
-  el.innerHTML = (r.reviews || []).map(x => `<div class="card"><b>${x.name}</b> — ${'★'.repeat(x.rating || 5)}<p>${x.text}</p><small>${x.service || ''}</small></div>`).join('');
+  const star = n => '★'.repeat(n) + '<span class="empty">' + '★'.repeat(Math.max(0, 5 - n)) + '</span>';
+  el.innerHTML = (r.reviews || []).map(x => `<div class="card"><div class="review-stars">${star(x.rating || 5)}</div><p>“${x.text}”</p><p><b>${x.name}</b><br><small>${x.service || 'Cleaning'}</small></p></div>`).join('');
 }
 async function submitReview(e) { e.preventDefault(); await api('/api/reviews', { method: 'POST', body: JSON.stringify({ name: $('#revName').value, rating: $('#revRating').value, text: $('#revText').value, service: $('#revService').value }) }); loadReviews(); e.target.reset(); alert('Thanks for your review!'); }
 async function submitInquiry(e) { e.preventDefault(); const r = await api('/api/inquiries', { method: 'POST', body: JSON.stringify({ name: $('#inqName').value, phone: $('#inqPhone').value, message: $('#inqMsg').value }) }); alert(r.message || 'Thanks!'); e.target.reset(); }
@@ -80,7 +90,12 @@ function cleaningScore() {
   const rooms = +($('#scoreRooms').value || 3), last = +($('#scoreLast').value || 7), pets = $('#scorePets').checked;
   let score = 100 - Math.min(40, last * 3) - (pets ? 10 : 0);
   score = Math.max(40, score);
-  $('#scoreResult').innerHTML = `<b>Cleaning score: ${score}/100</b> — ${score > 80 ? 'Great! A regular clean will keep it perfect.' : score > 60 ? 'Good — a deep clean is recommended.' : 'Time for a deep clean!'}`;
+  const msg = score > 80 ? 'Great! A regular clean will keep it perfect.' : score > 60 ? 'Good — a deep clean is recommended.' : 'Time for a deep clean!';
+  const wrap = $('#scoreWrap'); if (wrap) wrap.classList.remove('hidden');
+  const val = $('#scoreValue'); if (val) val.textContent = score + ' / 100';
+  const fill = $('#scoreFill'); if (fill) fill.style.width = score + '%';
+  const lab = $('#scoreLabel'); if (lab) lab.textContent = score > 80 ? 'Your home is looking great' : score > 60 ? 'Your home is doing well' : 'Your home needs attention';
+  $('#scoreResult').textContent = msg;
 }
 function comparePrices() {
   const ours = estimate();
@@ -90,16 +105,16 @@ async function joinWaitlist(e) { e.preventDefault(); const r = await api('/api/w
 async function loadMyBookings() {
   const saved = JSON.parse(localStorage.getItem('purenest_last_booking') || 'null');
   const el = $('#myBookings'); if (!el) return;
-  if (!saved) { el.innerHTML = '<p>No booking saved on this device yet. Book above, then come back here.</p>'; return; }
+  if (!saved) { el.innerHTML = `<div class="empty-state"><div class="empty-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#093c2a" stroke-width="1.8" stroke-linecap="round"><path d="M3 12h18M5 6h14M7 18h10"/></svg></div><h3>No bookings yet</h3><p>You have no bookings saved on this device. Book a cleaning above and it will appear here with live tracking.</p><a href="#booking" class="btn">Book Your First Clean</a></div>`; return; }
   const r = await api(`/api/bookings/${saved.id}?token=${saved.token}`);
-  if (!r.ok) { el.innerHTML = '<p>Could not load booking.</p>'; return; }
+  if (!r.ok) { el.innerHTML = `<div class="empty-state"><h3>Could not load booking</h3><p>Your booking may have been cancelled, or this device does not have it saved.</p><a href="#booking" class="btn">Book Again</a></div>`; return; }
   const b = r.booking;
-  el.innerHTML = `<div class="card"><b>${b.id}</b> — ${b.serviceName} — ${b.date} ${b.time} — AED ${b.total} — ${b.status}<br>WhatsApp: ${b.whatsapp_detail}<div class="stepper"><span class="step done">Booked</span><span class="step ${b.status !== 'confirmed' ? 'done' : ''}">Cleaner assigned</span><span class="step">On the way</span><span class="step">Cleaning</span><span class="step">Done</span></div><br><button class="btn ghost" onclick="cancelBooking('${b.id}','${b.token}')">Cancel booking</button> <a class="btn ghost" href="/api/invoice/${b.id}" target="_blank">Invoice</a> <a class="btn ghost" href="/api/calendar/${b.id}.ics">Calendar .ics</a></div>`;
+  el.innerHTML = `<div class="card"><h3>${b.serviceName}</h3><p><b>${b.id}</b> · ${b.date} at ${b.time} · <b>AED ${b.total}</b> · ${b.status}</p><p>WhatsApp: ${b.whatsapp_detail}</p><div class="stepper"><span class="step done"><span class="dot"></span>Booked</span><span class="step ${b.status !== 'confirmed' ? 'done' : ''}"><span class="dot"></span>Cleaner assigned</span><span class="step"><span class="dot"></span>On the way</span><span class="step"><span class="dot"></span>Cleaning</span><span class="step"><span class="dot"></span>Done</span></div><p style="margin-top:14px"><button class="btn ghost" onclick="cancelBooking('${b.id}','${b.token}')">Cancel booking</button> <a class="btn ghost" href="/api/invoice/${b.id}" target="_blank">Invoice</a> <a class="btn ghost" href="/api/calendar/${b.id}.ics">Calendar .ics</a></p></div>`;
 }
 async function cancelBooking(id, token) { await api(`/api/bookings/${id}/cancel`, { method: 'POST', body: JSON.stringify({ token }) }); loadMyBookings(); }
 function initExtras() {
   const el = $('#extras'); if (!el) return;
-  el.innerHTML = EXTRAS.map(([n, p]) => `<label><input type="checkbox" class="extra" value="${p}" data-name="${n}" onchange="updateSummary()"> ${n} (+AED ${p})</label><br>`).join('');
+  el.innerHTML = EXTRAS.map(([n, p]) => `<label class="check-row"><input type="checkbox" class="extra" value="${p}" data-name="${n}" onchange="updateSummary()"><span>${n} (+AED ${p})</span></label>`).join('');
 }
 document.addEventListener('DOMContentLoaded', () => {
   initExtras(); loadServices(); loadReviews(); loadMyBookings();
@@ -108,4 +123,33 @@ document.addEventListener('DOMContentLoaded', () => {
   ['estService', 'estBed', 'estBath', 'estFreq'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('change', updateSummary); });
   const cp = $('#coupon'); if (cp) cp.addEventListener('input', updateSummary);
   updateSummary();
+});
+
+function toggleMenu(btn) {
+  const m = document.getElementById('mobileMenu'); if (!m) return;
+  const open = m.classList.toggle('open');
+  if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  document.body.classList.toggle('modal-open', open);
+}
+function searchArea() {
+  const v = (document.getElementById('areaSearch')?.value || '').trim();
+  const el = document.getElementById('areaResult'); if (!el) return;
+  el.textContent = v ? `Yes — we cover ${v} (Dubai, Abu Dhabi, Sharjah, Riyadh, Doha).` : 'We cover Dubai, Abu Dhabi, Sharjah, Riyadh and Doha.';
+}
+document.addEventListener('focusin', e => {
+  const t = e.target;
+  if (t && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) document.body.classList.add('form-focused');
+});
+document.addEventListener('focusout', () => setTimeout(() => {
+  const a = document.activeElement;
+  if (!a || !/^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)) document.body.classList.remove('form-focused');
+}, 50));
+document.addEventListener('DOMContentLoaded', () => {
+  const slider = document.getElementById('baSlider');
+  if (slider) {
+    const move = x => { const r = slider.parentElement.getBoundingClientRect(); const pct = Math.max(5, Math.min(95, ((x - r.left) / r.width) * 100)); slider.style.left = pct + '%'; };
+    slider.addEventListener('pointerdown', e => { slider.setPointerCapture(e.pointerId); const h = ev => move(ev.clientX); slider.addEventListener('pointermove', h); slider.addEventListener('pointerup', () => slider.removeEventListener('pointermove', h), { once: true }); });
+    slider.addEventListener('keydown', e => { const cur = parseFloat(slider.style.left) || 50; if (e.key === 'ArrowLeft') slider.style.left = Math.max(5, cur - 5) + '%'; if (e.key === 'ArrowRight') slider.style.left = Math.min(95, cur + 5) + '%'; });
+  }
+  document.querySelectorAll('#mobileMenu a').forEach(a => a.addEventListener('click', () => { document.getElementById('mobileMenu')?.classList.remove('open'); document.body.classList.remove('modal-open'); }));
 });
