@@ -1,147 +1,195 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>PureNest Clean Co. — Cleaning Services</title>
-<meta name="description" content="PureNest Clean Co. — professional home, office and Airbnb cleaning with instant pricing, online booking and WhatsApp confirmation.">
+<title>PureNest Clean Co. — Cleaning Services in Dubai, Abu Dhabi, Riyadh &amp; Doha</title>
+<meta name="description" content="PureNest Clean Co. — professional home, office and Airbnb cleaning with instant pricing, online booking and WhatsApp confirmation. By Goyal Kumar.">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles.css"></head>
 <body>
-<header><div class="nav">
-<div class="logo">Pure<span>Nest</span> Clean Co.</div>
-<nav class="navlinks" id="navlinks"><a href="#services">Services</a><a href="#pricing">Pricing</a><a href="#booking">Book</a><a href="#reviews">Reviews</a><a href="#faq">FAQ</a></nav>
+<header class="site-header"><div class="nav">
+<a class="logo" href="/">Pure<span>Nest</span> Clean Co.</a>
+<nav class="navlinks" id="navlinks"><a href="#services-section">Services</a><a href="#pricing">Pricing</a><a href="#booking">Book</a><a href="#reviews-section">Reviews</a><a href="#faq">FAQ</a></nav>
 <div class="lang"><select aria-label="Language" onchange="setLang(this.value)"><option value="en">English</option><option value="hi">हिंदी</option><option value="ur">اردو</option></select></div>
-<a href="/admin.html" class="btn ghost"><span>Admin Login</span></a><a href="#booking" class="btn bookbtn">Book Now</a>
+<a href="/admin.html" class="btn ghost small">Admin Login</a><a href="#booking" class="btn bookbtn">Book Now</a>
 <button class="hamburger" aria-label="Open menu" aria-expanded="false" onclick="toggleMenu(this)">☰</button>
 </div>
-<div class="mobile-menu" id="mobileMenu"><a href="#services">Services</a><a href="#pricing">Pricing</a><a href="#booking">Book</a><a href="#reviews">Reviews</a><a href="#faq">FAQ</a><a href="/admin.html">Admin Login</a></div>
+<div class="mobile-menu" id="mobileMenu"><a href="#services-section">Services</a><a href="#pricing">Pricing</a><a href="#booking">Book</a><a href="#reviews-section">Reviews</a><a href="#faq">FAQ</a><a href="/admin.html">Admin Login</a></div>
 <p id="langNote"></p></header>
 
 <main class="wrap">
-<section class="hero"><div class="hero-copy">
-<span class="pill">Trusted · Insured · Background-checked</span>
+<!-- HERO -->
+<section class="hero"><div class="hero-grid">
+<div class="hero-copy">
+<span class="kicker">Trusted · Insured · Background-checked</span>
 <h1 id="heroTitle">A cleaner home, without the hassle.</h1>
-<p>Professional cleaning for homes, offices and Airbnb stays. Instant price, online booking, and WhatsApp confirmation.</p>
+<p class="lead">Professional cleaning for homes, offices and Airbnb stays. Instant price, online booking, and WhatsApp confirmation.</p>
 <div class="trust-pills">
 <span class="trust-pill"><span class="star">★</span> 4.9 rating</span>
 <span class="trust-pill">500+ homes cleaned</span>
 <span class="trust-pill">Same-day available</span>
 </div>
-<div class="btn-row"><a href="#booking" class="btn light bookbtn">Book Now</a><a href="#estimator" class="btn hero-secondary">Get Instant Price</a></div>
+<div class="btn-row"><a href="#booking" class="btn light bookbtn">Book Now</a><a href="#estimator" class="btn">Get Instant Price</a></div>
 </div>
-<div class="card" id="estimator"><h3>Instant Price Estimator</h3>
+<div class="hero-visual">
+<img src="https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=1200&q=80" alt="Bright, freshly cleaned living room" loading="eager">
+<span class="hero-badge">Same-day slots available</span>
+<div class="hero-visual-card"><div class="row"><div><h3>Deep Cleaning</h3><p>Kitchen, bathrooms, floors — top to bottom.</p></div><div class="price">AED 249</div></div></div>
+</div>
+</div></section>
+
+<!-- ESTIMATOR -->
+<section id="estimator"><div class="card estimator-card">
+<h2>Instant Price Estimator</h2>
 <p class="card-sub">No call needed — your exact price in seconds.</p>
-<label>Service</label><select id="estService" onchange="updateSummary()"><option value="deep">Deep Cleaning — AED 249</option><option value="regular">Regular Home Cleaning — AED 149</option><option value="move">Move-In / Move-Out — AED 299</option><option value="reno">Post-Renovation — AED 349</option><option value="airbnb">Airbnb Turnover — AED 129</option><option value="office">Office Cleaning — AED 199</option></select>
-<label>Bedrooms: <span id="bedOut">2</span></label><input type="range" id="estBed" min="1" max="6" value="2" oninput="document.getElementById('bedOut').textContent=this.value;updateSummary()">
-<label>Bathrooms: <span id="bathOut">1</span></label><input type="range" id="estBath" min="1" max="4" value="1" oninput="document.getElementById('bathOut').textContent=this.value;updateSummary()">
-<label>Frequency</label><select id="estFreq" onchange="updateSummary()"><option value="one-time">One-time</option><option value="weekly">Weekly — 20% off</option><option value="fortnightly">Fortnightly — 10% off</option></select>
-<label class="section-label">Extras</label><div id="extras"></div>
+<label for="estService">Service</label>
+<select id="estService" onchange="updateSummary()"><option value="deep">Deep Cleaning — AED 249</option><option value="regular">Regular Home Cleaning — AED 149</option><option value="move">Move-In / Move-Out — AED 299</option><option value="reno">Post-Renovation — AED 349</option><option value="airbnb">Airbnb Turnover — AED 129</option><option value="office">Office Cleaning — AED 199</option><option value="pet">Pet Cleaning — AED 179</option><option value="car">Car + Home Combo — AED 99</option></select>
+<div class="range-row"><label for="estBed" style="margin:14px 0 0">Bedrooms</label><output id="bedOut">2</output></div>
+<input type="range" id="estBed" min="1" max="6" value="2" oninput="document.getElementById('bedOut').textContent=this.value;updateSummary()">
+<div class="range-row"><label for="estBath" style="margin:14px 0 0">Bathrooms</label><output id="bathOut">1</output></div>
+<input type="range" id="estBath" min="1" max="4" value="1" oninput="document.getElementById('bathOut').textContent=this.value;updateSummary()">
+<label for="estFreq">Frequency</label>
+<select id="estFreq" onchange="updateSummary()"><option value="one-time">One-time</option><option value="weekly">Weekly — 20% off</option><option value="fortnightly">Fortnightly — 10% off</option></select>
+<label class="section-label" style="margin-top:18px">Extras</label>
+<div class="check-list" id="extras"></div>
+<div class="check-list" style="margin-top:8px">
 <label class="check-row"><input type="checkbox" id="ecoToggle" onchange="updateSummary()"><span>Eco-Clean — chemical-free, pet-safe, baby-safe (+AED 20)</span></label>
 <label class="check-row"><input type="checkbox" id="allergyToggle" onchange="updateSummary()"><span>Allergy Mode — dust-free anti-allergen (+AED 25)</span></label>
 <label class="check-row"><input type="checkbox" id="seniorToggle" onchange="updateSummary()"><span>Senior citizen discount — 10% off</span></label>
-<label>Coupon</label><input id="coupon" placeholder="Try FIRST20" oninput="updateSummary()">
+</div>
+<label for="coupon">Coupon</label>
+<input id="coupon" placeholder="Try FIRST20" oninput="updateSummary()">
 <div class="price-line"><span class="total" id="estTotal">AED 249</span><span class="was hidden" id="estWas"></span><span class="save-badge hidden" id="estSave"></span></div>
-<button class="btn" onclick="comparePrices()">Compare Prices</button><p id="compareResult" class="compare-result"></p>
-<p class="fine-print">Carbon footprint: eco cleaning saves ~2 L of water and 3 plastic bottles per visit. <span id="carbon">See your savings after booking.</span></p></div></section>
+<button class="btn" onclick="comparePrices()">Compare Prices</button>
+<p id="compareResult" class="compare-result"></p>
+<p class="fine-print">Carbon footprint: eco cleaning saves about 2 litres of water and 3 plastic bottles per visit.</p>
+</div></section>
 
-<section id="services"><h2>Our Services</h2><p class="section-sub">Every clean is done by a verified, insured professional.</p>
-<div class="search-row"><input id="serviceSearch" placeholder="Search services…"><select id="serviceCat" style="max-width:200px"><option value="">All categories</option><option value="home">Home</option><option value="move">Move</option><option value="special">Special</option><option value="business">Business</option><option value="combo">Combo</option></select></div>
+<!-- SERVICES -->
+<section id="services-section"><div class="section-head"><span class="kicker">Our Services</span><h2>Cleaning for every home</h2><p class="section-sub">Every clean is done by a verified, insured professional.</p></div>
+<div class="search-row"><input id="serviceSearch" placeholder="Search services…" aria-label="Search services"><select id="serviceCat" aria-label="Service category"><option value="">All categories</option><option value="home">Home</option><option value="move">Move</option><option value="special">Special</option><option value="business">Business</option><option value="combo">Combo</option></select></div>
 <div class="grid" id="services"></div></section>
 
-<section><h2>How It Works</h2><p class="section-sub">Booked in under two minutes. Cleaned the same day.</p><div class="grid">
+<!-- HOW IT WORKS -->
+<section><div class="section-head"><span class="kicker">How It Works</span><h2>Booked in under two minutes</h2><p class="section-sub">Cleaned the same day. No calls, no waiting.</p></div>
+<div class="grid grid-4">
 <div class="card how-step"><div class="how-num">1</div><h3>Get a price</h3><p>Use the estimator above — instant, no call needed.</p></div>
 <div class="card how-step"><div class="how-num">2</div><h3>Book online</h3><p>Pick a date and time, pay by UPI, card or cash.</p></div>
 <div class="card how-step"><div class="how-num">3</div><h3>We clean</h3><p>A verified, insured cleaner arrives on time.</p></div>
-<div class="card how-step"><div class="how-num">4</div><h3>Relax</h3><p>Check your cleaning score and review the visit.</p></div></div></section>
+<div class="card how-step"><div class="how-num">4</div><h3>Relax</h3><p>Check your cleaning score and review the visit.</p></div>
+</div></section>
 
-<section id="booking"><h2>Book a Cleaning</h2><p class="section-sub">Tell us about your home — we handle the rest.</p>
+<!-- BOOKING -->
+<section id="booking"><div class="section-head"><span class="kicker">Book a Cleaning</span><h2>Book your clean</h2><p class="section-sub">Tell us about your home — we handle the rest.</p></div>
 <form class="card" onsubmit="submitBooking(event)">
 <div class="form-grid">
-<div><label>Service</label><select id="bookingService"><option value="deep">Deep Cleaning</option><option value="regular">Regular Home Cleaning</option><option value="move">Move-In / Move-Out</option><option value="reno">Post-Renovation</option><option value="airbnb">Airbnb Turnover</option><option value="office">Office Cleaning</option><option value="pet">Pet Cleaning</option><option value="car">Car + Home Combo</option></select></div>
-<div><label>Name</label><input id="bookName" placeholder="Your full name" required></div>
-<div><label>Phone / WhatsApp</label><input id="bookPhone" placeholder="+91 98765 43210" required></div>
-<div><label>Email</label><input id="bookEmail" type="email" placeholder="you@example.com"></div>
-<div><label>Date</label><input id="bookDate" type="date" required onchange="updateSummary()"></div>
-<div><label>Time</label><select id="bookTime"><option>09:00</option><option>10:00</option><option>13:00</option><option>17:00</option></select></div>
-<div><label>Bedrooms</label><input id="bookBed" type="number" value="2" min="1" max="6" onchange="updateSummary()"></div>
-<div><label>Bathrooms</label><input id="bookBath" type="number" value="1" min="1" max="4" onchange="updateSummary()"></div>
-<div class="full"><label>Address</label><input id="bookAddress" placeholder="Flat, street, area, city" required></div>
-<div><label>Payment</label><select id="bookPayment"><option value="upi">UPI</option><option value="card">Card</option><option value="cash">Cash on service</option></select></div>
+<div><label for="bookingService">Service</label><select id="bookingService"><option value="deep">Deep Cleaning</option><option value="regular">Regular Home Cleaning</option><option value="move">Move-In / Move-Out</option><option value="reno">Post-Renovation</option><option value="airbnb">Airbnb Turnover</option><option value="office">Office Cleaning</option><option value="pet">Pet Cleaning</option><option value="car">Car + Home Combo</option></select></div>
+<div><label for="bookName">Name</label><input id="bookName" placeholder="Your full name" required></div>
+<div><label for="bookPhone">Phone / WhatsApp</label><input id="bookPhone" placeholder="+91 98765 43210" required></div>
+<div><label for="bookEmail">Email</label><input id="bookEmail" type="email" placeholder="you@example.com"></div>
+<div><label for="bookDate">Date</label><input id="bookDate" type="date" required onchange="updateSummary()"></div>
+<div><label for="bookTime">Time</label><select id="bookTime"><option>09:00</option><option>10:00</option><option>13:00</option><option>17:00</option></select></div>
+<div><label for="bookBed">Bedrooms</label><input id="bookBed" type="number" value="2" min="1" max="6" onchange="updateSummary()"></div>
+<div><label for="bookBath">Bathrooms</label><input id="bookBath" type="number" value="1" min="1" max="4" onchange="updateSummary()"></div>
+<div class="full"><label for="bookAddress">Address</label><input id="bookAddress" placeholder="Flat, street, area, city" required></div>
+<div><label for="bookPayment">Payment</label><select id="bookPayment"><option value="upi">UPI</option><option value="card">Card</option><option value="cash">Cash on service</option></select></div>
 </div>
 <input type="hidden" id="bookTotal" value="249">
 <div id="bookingSummary" class="summary-box"></div>
-<button class="btn" type="submit">Confirm Booking</button>
+<button class="btn block" type="submit">Confirm Booking</button>
 </form><p id="bookingResult"></p>
 <p class="fine-print">Same-day / emergency booking: choose today's date — we confirm within 30 minutes. Seasonal packages: Diwali, Eid, Ramadan and moving specials are in the estimator extras.</p></section>
 
-<section><h2>My Bookings &amp; Live Tracking</h2><p class="section-sub">Your booking is saved and tracked here with a live status stepper.</p><div id="myBookings"></div>
-<p><a href="#" onclick="loadMyBookings();return false">Refresh bookings</a></p></section>
+<!-- MY BOOKINGS -->
+<section><div class="section-head"><span class="kicker">My Bookings</span><h2>My Bookings &amp; Live Tracking</h2><p class="section-sub">Your booking is saved and tracked here with a live status stepper.</p></div>
+<div id="myBookings"></div>
+<p style="margin-top:14px"><a href="#" onclick="loadMyBookings();return false">Refresh bookings</a></p></section>
 
-<section><h2>AI Cleaning Plan — Answer 5 Questions</h2><p class="section-sub">A custom plan for your home, made in seconds.</p>
+<!-- AI PLAN -->
+<section><div class="section-head"><span class="kicker">AI Cleaning Plan</span><h2>Answer 5 questions, get your plan</h2><p class="section-sub">A custom plan for your home, made in seconds.</p></div>
 <form class="card" onsubmit="aiPlan(event)"><div class="form-grid">
-<div><label>Bedrooms</label><input id="aiBed" type="number" value="2"></div>
-<div><label>Bathrooms</label><input id="aiBath" type="number" value="1"></div>
-<div><label>Home type</label><select id="aiHome"><option>apartment</option><option>villa</option><option>office</option></select></div>
-<div><label>Frequency</label><select id="aiFreq"><option>weekly</option><option>fortnightly</option><option>monthly</option></select></div>
-<div><label>Budget</label><select id="aiBudget"><option value="budget">Budget</option><option value="standard">Standard</option></select></div>
-<div><label class="check-row"><input type="checkbox" id="aiPets"><span>Pets at home</span></label><label class="check-row"><input type="checkbox" id="aiAllergy"><span>Allergies / asthma</span></label><label class="check-row"><input type="checkbox" id="aiEco"><span>Eco products only</span></label></div>
-</div><button class="btn">Make My Plan</button></form><div id="aiPlanResult"></div></section>
+<div><label for="aiBed">Bedrooms</label><input id="aiBed" type="number" value="2"></div>
+<div><label for="aiBath">Bathrooms</label><input id="aiBath" type="number" value="1"></div>
+<div><label for="aiHome">Home type</label><select id="aiHome"><option>apartment</option><option>villa</option><option>office</option></select></div>
+<div><label for="aiFreq">Frequency</label><select id="aiFreq"><option>weekly</option><option>fortnightly</option><option>monthly</option></select></div>
+<div><label for="aiBudget">Budget</label><select id="aiBudget"><option value="budget">Budget</option><option value="standard">Standard</option></select></div>
+<div><label class="check-row"><input type="checkbox" id="aiPets"><span>Pets at home</span></label><label class="check-row" style="margin-top:8px"><input type="checkbox" id="aiAllergy"><span>Allergies / asthma</span></label><label class="check-row" style="margin-top:8px"><input type="checkbox" id="aiEco"><span>Eco products only</span></label></div>
+</div><button class="btn" style="margin-top:16px">Make My Plan</button></form><div id="aiPlanResult" style="margin-top:16px"></div></section>
 
-<section><h2>Room-by-Room Tour &amp; Checklists</h2><p class="section-sub">Tap a room to see exactly what gets cleaned.</p><div class="grid">
+<!-- ROOMS + BEFORE/AFTER -->
+<section><div class="section-head"><span class="kicker">Room-by-Room</span><h2>Exactly what gets cleaned</h2><p class="section-sub">Tap a room to see the checklist — no surprises.</p></div>
+<div class="grid grid-4">
 <div class="card"><h3>Kitchen</h3><ul class="checklist"><li>Hob, oven &amp; extractor</li><li>Counters &amp; sink</li><li>Fridge front &amp; handles</li></ul></div>
 <div class="card"><h3>Bathroom</h3><ul class="checklist"><li>Toilet, shower &amp; taps</li><li>Mirror &amp; tiles</li><li>Floor &amp; sanitising</li></ul></div>
 <div class="card"><h3>Bedroom</h3><ul class="checklist"><li>Dusting &amp; vacuuming</li><li>Bed making</li><li>Wardrobe fronts</li></ul></div>
-<div class="card"><h3>Living Room</h3><ul class="checklist"><li>Sofa &amp; cushions</li><li>TV &amp; shelves</li><li>Floors &amp; windows</li></ul></div></div>
-<h3>Before / After</h3>
-<div class="beforeafter"><img src="https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=1200&q=80" alt="Clean living room after a PureNest deep clean" loading="lazy"><span class="ba-label before">Before</span><span class="ba-label after">After</span><div class="slider" id="baSlider" role="slider" aria-label="Before and after comparison" tabindex="0"></div></div>
+<div class="card"><h3>Living Room</h3><ul class="checklist"><li>Sofa &amp; cushions</li><li>TV &amp; shelves</li><li>Floors &amp; windows</li></ul></div>
+</div>
+<h3 style="margin-top:36px">Before / After</h3>
+<div class="beforeafter"><img src="https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=1200&q=80" alt="Clean living room after a PureNest deep clean" loading="lazy"><span class="ba-label before">Before</span><span class="ba-label after">After</span><div class="ba-slider" id="baSlider" role="slider" aria-label="Before and after comparison" aria-valuenow="50" tabindex="0"></div></div>
 <p class="ba-caption">Drag the handle to compare — this living room after a PureNest deep clean.</p></section>
 
-<section><h2>Meet Your Cleaners</h2><p class="section-sub">Background-checked, insured, and verified — every time.</p><div class="grid">
+<!-- CLEANERS -->
+<section><div class="section-head"><span class="kicker">Meet Your Cleaners</span><h2>Verified, insured, background-checked</h2><p class="section-sub">The same trusted team, every time.</p></div>
+<div class="grid">
 <div class="card"><div class="cleaner-top"><div class="avatar-initials">AK</div><div><h3>Aisha Khan</h3><div class="stars">★★★★★ <span class="rating-num">4.9</span></div></div></div><p>Deep cleaning specialist, 5 years.</p><p><span class="badge">Background-checked</span> <span class="badge">Insured</span> <span class="badge">Verified ID</span></p></div>
 <div class="card"><div class="cleaner-top"><div class="avatar-initials alt">RP</div><div><h3>Ravi Patel</h3><div class="stars">★★★★★ <span class="rating-num">4.8</span></div></div></div><p>Office &amp; Airbnb turnover.</p><p><span class="badge">Background-checked</span> <span class="badge">Insured</span></p></div>
-<div class="card"><div class="cleaner-top"><div class="avatar-initials">MD</div><div><h3>Maria D'Souza</h3><div class="stars">★★★★★ <span class="rating-num">5.0</span></div></div></div><p>Pet-safe &amp; eco cleaning.</p><p><span class="badge">Background-checked</span> <span class="badge">Insured</span></p></div></div></section>
+<div class="card"><div class="cleaner-top"><div class="avatar-initials">MD</div><div><h3>Maria D'Souza</h3><div class="stars">★★★★★ <span class="rating-num">5.0</span></div></div></div><p>Pet-safe &amp; eco cleaning.</p><p><span class="badge">Background-checked</span> <span class="badge">Insured</span></p></div>
+</div></section>
 
-<section id="pricing"><h2>Pricing Plans</h2><p class="section-sub">Simple, honest pricing. No hidden charges.</p><div class="grid">
-<div class="card"><h3>One-Time</h3><p class="plan-price">From AED 149</p><p>Pay per visit, no commitment.</p></div>
+<!-- PRICING -->
+<section id="pricing"><div class="section-head"><span class="kicker">Pricing Plans</span><h2>Simple, honest pricing</h2><p class="section-sub">No hidden charges. Pause or cancel anytime.</p></div>
+<div class="grid">
+<div class="card"><h3>One-Time</h3><p class="plan-price">From AED 149 / visit</p><p>Pay per visit, no commitment.</p></div>
 <div class="card plan-featured"><span class="pill">Most Popular</span><h3>Weekly</h3><p class="plan-price">From AED 119 / visit</p><p>20% off, same cleaner, pause anytime.</p></div>
-<div class="card"><h3>Monthly Subscription</h3><p class="plan-price">From AED 449 / month</p><p>4 visits, priority slots, loyalty points.</p></div></div>
-<form class="card" onsubmit="event.preventDefault();fetch('/api/subscriptions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:document.getElementById('subName').value,plan:document.getElementById('subPlan').value})}).then(r=>r.json()).then(d=>alert(d.message))"><h3>Start a subscription</h3><div class="form-grid"><div><label>Name</label><input id="subName" placeholder="Your name" required></div><div><label>Plan</label><select id="subPlan"><option>Weekly</option><option>Monthly</option></select></div></div><button class="btn">Subscribe</button></form>
+<div class="card"><h3>Monthly Subscription</h3><p class="plan-price">From AED 449 / month</p><p>4 visits, priority slots, loyalty points.</p></div>
+</div>
+<form class="card" style="margin-top:20px" onsubmit="event.preventDefault();fetch('/api/subscriptions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:document.getElementById('subName').value,plan:document.getElementById('subPlan').value})}).then(r=>r.json()).then(d=>alert(d.message))"><h3>Start a subscription</h3><div class="form-grid"><div><label for="subName">Name</label><input id="subName" placeholder="Your name" required></div><div><label for="subPlan">Plan</label><select id="subPlan"><option>Weekly</option><option>Monthly</option></select></div></div><button class="btn" style="margin-top:16px">Subscribe</button></form>
 <p class="fine-print">Loyalty: earn points on every booking. Refer a friend — you both get AED 25 off. Group booking: whole building together, bulk discount — ask in the callback form.</p></section>
 
-<section><h2>Cleaning Score</h2><p class="section-sub">How clean is your home right now?</p>
-<div class="card"><div class="form-grid"><div><label>Rooms</label><input id="scoreRooms" type="number" value="3"></div><div><label>Days since last deep clean</label><input id="scoreLast" type="number" value="7"></div><div class="full"><label class="check-row"><input type="checkbox" id="scorePets"><span>Pets at home</span></label></div></div>
-<button class="btn" onclick="cleaningScore()">Check My Score</button>
+<!-- SCORE -->
+<section><div class="section-head"><span class="kicker">Cleaning Score</span><h2>How clean is your home right now?</h2><p class="section-sub">Answer three questions and get your score.</p></div>
+<div class="card"><div class="form-grid"><div><label for="scoreRooms">Rooms</label><input id="scoreRooms" type="number" value="3"></div><div><label for="scoreLast">Days since last deep clean</label><input id="scoreLast" type="number" value="7"></div><div class="full"><label class="check-row"><input type="checkbox" id="scorePets"><span>Pets at home</span></label></div></div>
+<button class="btn" style="margin-top:16px" onclick="cleaningScore()">Check My Score</button>
 <div class="score-wrap hidden" id="scoreWrap"><div class="score-head"><span class="score-label" id="scoreLabel">Your cleaning score</span><span class="score-value" id="scoreValue">—</span></div><div class="score-bar"><div class="score-bar-fill" id="scoreFill" style="width:0%"></div></div><p id="scoreResult" class="score-text"></p></div></div></section>
 
-<section><h2>Areas Covered</h2><p class="section-sub">We clean across the UAE, Saudi Arabia and Qatar.</p>
+<!-- AREAS -->
+<section><div class="section-head"><span class="kicker">Areas Covered</span><h2>We clean across the Gulf</h2><p class="section-sub">UAE, Saudi Arabia and Qatar.</p></div>
 <div class="search-row"><input id="areaSearch" placeholder="Search your area…" aria-label="Search your area"><button class="btn" onclick="searchArea()">Search</button></div>
 <p id="areaResult">We cover Dubai, Abu Dhabi, Sharjah, Riyadh and Doha.</p>
 <div class="area-chips"><span class="area-chip">Dubai</span><span class="area-chip">Abu Dhabi</span><span class="area-chip">Sharjah</span><span class="area-chip">Riyadh</span><span class="area-chip">Doha</span><span class="area-chip">Jeddah</span><span class="area-chip">Ajman</span></div></section>
 
-<section id="reviews"><h2>What Customers Say</h2><p class="section-sub">Real reviews from real homes.</p><div class="grid-3" id="reviews"></div>
-<form class="card" onsubmit="submitReview(event)"><h3>Leave a review</h3><div class="form-grid"><div><label>Your name</label><input id="revName" placeholder="Your name" required></div><div><label>Rating</label><select id="revRating"><option value="5">5 — Excellent</option><option value="4">4 — Very good</option><option value="3">3 — Good</option></select></div><div><label>Service</label><input id="revService" placeholder="e.g. Deep Cleaning"></div></div><label>Your review</label><textarea id="revText" placeholder="Tell us how the clean went…" required></textarea><button class="btn">Post Review</button></form>
-<form class="card" onsubmit="event.preventDefault();fetch('/api/claims',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'customer',issue:document.getElementById('claimText').value})}).then(r=>r.json()).then(d=>alert(d.message))"><h3>Insurance claim / report an issue</h3><label>Describe the issue</label><textarea id="claimText" placeholder="Describe the issue"></textarea><button class="btn ghost">File Claim</button></form>
+<!-- REVIEWS -->
+<section id="reviews-section"><div class="section-head"><span class="kicker">Reviews</span><h2>What Customers Say</h2><p class="section-sub">Real reviews from real homes.</p></div>
+<div class="grid-3" id="reviews"></div>
+<form class="card" style="margin-top:20px" onsubmit="submitReview(event)"><h3>Leave a review</h3><div class="form-grid"><div><label for="revName">Your name</label><input id="revName" placeholder="Your name" required></div><div><label for="revRating">Rating</label><select id="revRating"><option value="5">5 — Excellent</option><option value="4">4 — Very good</option><option value="3">3 — Good</option></select></div><div><label for="revService">Service</label><input id="revService" placeholder="e.g. Deep Cleaning"></div></div><label for="revText" style="margin-top:16px">Your review</label><textarea id="revText" placeholder="Tell us how the clean went…" required></textarea><button class="btn" style="margin-top:16px">Post Review</button></form>
+<form class="card" style="margin-top:20px" onsubmit="event.preventDefault();fetch('/api/claims',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'customer',issue:document.getElementById('claimText').value})}).then(r=>r.json()).then(d=>alert(d.message))"><h3>Insurance claim / report an issue</h3><label for="claimText">Describe the issue</label><textarea id="claimText" placeholder="Describe the issue"></textarea><button class="btn ghost" style="margin-top:16px">File Claim</button></form>
 <p class="fine-print">Feedback video: record a 10-second video review and get AED 25 off your next booking — mention it in your review and we will send the coupon.</p></section>
 
-<section><h2>AI Support Chat — Talk to Mia</h2><p class="section-sub">Instant answers on pricing, booking and cleaning.</p>
+<!-- AI CHAT -->
+<section><div class="section-head"><span class="kicker">AI Support</span><h2>Talk to Mia</h2><p class="section-sub">Instant answers on pricing, booking and cleaning.</p></div>
 <div class="card"><div id="chatBox"><p><b>Mia:</b> Hi! Ask me about pricing, booking, eco cleaning or cancellations.</p></div>
 <form class="chat-form" onsubmit="aiChat(event)"><input id="chatInput" placeholder="Ask about cleaning…" required><button class="btn" type="submit">Send</button></form>
 <p class="fine-print">Built-in answers work without a key. Smarter answers use Google Gemini when GEMINI_API_KEY is set on the server.</p></div></section>
 
-<section><h2>Request a Callback / Contact</h2><p class="section-sub">We call you back, usually within 30 minutes.</p>
-<form class="card" onsubmit="submitInquiry(event)"><div class="form-grid"><div><label>Name</label><input id="inqName" placeholder="Your name" required></div><div><label>Phone</label><input id="inqPhone" placeholder="+91 98765 43210" required></div></div><label>Message</label><textarea id="inqMsg" placeholder="Message — e.g. video-call quote, group booking, business quote"></textarea><button class="btn">Request Callback</button></form>
+<!-- CONTACT / WAITLIST -->
+<section><div class="section-head"><span class="kicker">Contact</span><h2>Request a callback</h2><p class="section-sub">We call you back, usually within 30 minutes.</p></div>
+<form class="card" onsubmit="submitInquiry(event)"><div class="form-grid"><div><label for="inqName">Name</label><input id="inqName" placeholder="Your name" required></div><div><label for="inqPhone">Phone</label><input id="inqPhone" placeholder="+91 98765 43210" required></div></div><label for="inqMsg" style="margin-top:16px">Message</label><textarea id="inqMsg" placeholder="Message — e.g. video-call quote, group booking, business quote"></textarea><button class="btn" style="margin-top:16px">Request Callback</button></form>
 <p class="fine-print">Video-call quote: book a 5-minute video call in the message above and an expert will give you an exact price. Smart home: say “book a cleaning tomorrow” to Alexa / Google Home and use the booking form link.</p>
-<h3>Join the Waitlist</h3>
-<form class="card" onsubmit="joinWaitlist(event)"><div class="form-grid"><div><label>Name</label><input id="wlName" placeholder="Your name" required></div><div><label>Date</label><input id="wlDate" type="date" required></div><div><label>Service</label><input id="wlService" placeholder="e.g. Deep Cleaning"></div></div><button class="btn ghost">Join Waitlist</button></form></section>
+<h3 style="margin-top:32px">Join the Waitlist</h3>
+<form class="card" onsubmit="joinWaitlist(event)"><div class="form-grid"><div><label for="wlName">Name</label><input id="wlName" placeholder="Your name" required></div><div><label for="wlDate">Date</label><input id="wlDate" type="date" required></div><div><label for="wlService">Service</label><input id="wlService" placeholder="e.g. Deep Cleaning"></div></div><button class="btn ghost" style="margin-top:16px">Join Waitlist</button></form></section>
 
-<section id="faq"><h2>Frequently Asked Questions</h2>
+<!-- FAQ -->
+<section id="faq"><div class="section-head"><span class="kicker">FAQ</span><h2>Frequently Asked Questions</h2><p class="section-sub">Everything else, answered.</p></div>
 <details><summary>What is included in a deep clean?</summary><p>Kitchen, bathrooms, floors, dusting, cobwebs, windows inside and sanitising — see the room checklists above.</p></details>
 <details><summary>Do I need to be home?</summary><p>No. Many customers leave a key or code — cleaners are background-checked and insured.</p></details>
 <details><summary>How do I pay?</summary><p>UPI, card or cash on service. Subscriptions are billed monthly and can be paused anytime.</p></details>
 <details><summary>What if I am not happy?</summary><p>Tell us within 24 hours — we re-clean for free, or file an insurance claim above.</p></details></section>
 </main>
+
 <a href="#booking" class="btn floatbook bookbtn" id="floatBook">Book Now</a>
 <footer><div class="footer-grid">
-<div><b style="font-size:18px">PureNest Clean Co.</b><p>Professional cleaning, done right — homes, offices and Airbnb stays, with instant pricing and WhatsApp confirmation.</p><small>By Goyal Kumar</small></div>
-<div><h4>Explore</h4><a href="#services">Services</a><a href="#pricing">Pricing</a><a href="#booking">Book a Cleaning</a><a href="#reviews">Reviews</a><a href="#faq">FAQ</a></div>
+<div><b style="font-size:18px;color:#fff">PureNest Clean Co.</b><p>Professional cleaning, done right — homes, offices and Airbnb stays, with instant pricing and WhatsApp confirmation.</p><small>By Goyal Kumar</small></div>
+<div><h4>Explore</h4><a href="#services-section">Services</a><a href="#pricing">Pricing</a><a href="#booking">Book a Cleaning</a><a href="#reviews-section">Reviews</a><a href="#faq">FAQ</a></div>
 <div><h4>Contact</h4><a href="https://wa.me/917876520226">WhatsApp: +91 78765 20226</a><a href="mailto:goyaldhiman00@gmail.com">goyaldhiman00@gmail.com</a><a href="/">Dubai · Abu Dhabi · Riyadh · Doha</a><a href="/admin.html">Admin Login</a></div>
-</div></footer>
+</div>
+<div class="footer-bottom"><span>© 2026 PureNest Clean Co. All rights reserved.</span><span>By Goyal Kumar</span></div>
+</footer>
 <script src="/app.js"></script></body></html>
