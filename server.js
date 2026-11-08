@@ -11,8 +11,13 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const DATA = path.join(__dirname, 'data');
 fs.mkdirSync(DATA, { recursive: true });
+const db = require('./db');
+db.connect(); // MongoDB Atlas when MONGODB_URI is set, JSON files otherwise (non-blocking)
 app.use(express.json({ limit: '1mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
+// Serve the React (Vite) build when it exists, otherwise the legacy public/ folder.
+const DIST = path.join(__dirname, 'frontend', 'dist');
+const STATIC_DIR = fs.existsSync(path.join(DIST, 'index.html')) ? DIST : path.join(__dirname, 'public');
+app.use(express.static(STATIC_DIR));
 
 function load(name, fallback) {
   const f = path.join(DATA, name);
@@ -83,56 +88,57 @@ app.post('/api/bookings', async (req, res) => {
   };
   const wa = await sendWhatsApp(booking);
   booking.whatsapp_status = wa.status; booking.whatsapp_detail = wa.detail; booking.whatsapp_message_id = wa.messageId || null;
-  const all = load('bookings.json', []); all.push(booking); save('bookings.json', all);
+  await db.saveBooking(booking);
   res.json({ ok: true, booking: { ...booking, accessToken: booking.accessToken } });
 });
-app.get('/api/bookings/:id', (req, res) => {
-  const all = load('bookings.json', []);
-  const b = all.find(x => x.id === req.params.id);
+app.get('/api/bookings/:id', async (req, res) => {
+  const b = await db.getBooking(req.params.id);
   if (!b) return res.status(404).json({ ok: false, error: 'Booking not found' });
   if (req.query.token !== b.accessToken) return res.status(403).json({ ok: false, error: 'Access token required' });
   res.json({ ok: true, booking: b });
 });
-app.post('/api/bookings/:id/cancel', (req, res) => {
-  const all = load('bookings.json', []);
-  const b = all.find(x => x.id === req.params.id);
+app.post('/api/bookings/:id/cancel', async (req, res) => {
+  const b = await db.getBooking(req.params.id);
   if (!b || req.body?.token !== b.accessToken) return res.status(403).json({ ok: false, error: 'Not allowed' });
-  b.status = 'cancelled'; save('bookings.json', all); res.json({ ok: true, booking: b });
+  const updated = await db.updateBooking(req.params.id, { status: 'cancelled' });
+  res.json({ ok: true, booking: updated });
 });
 app.post('/api/bookings/:id/resend-whatsapp', requireAdmin, async (req, res) => {
-  const all = load('bookings.json', []);
-  const b = all.find(x => x.id === req.params.id);
+  const b = await db.getBooking(req.params.id);
   if (!b) return res.status(404).json({ ok: false, error: 'Booking not found' });
   const wa = await sendWhatsApp(b);
-  b.whatsapp_status = wa.status; b.whatsapp_detail = wa.detail; b.whatsapp_message_id = wa.messageId || null;
-  save('bookings.json', all); res.json({ ok: true, booking: b });
+  const updated = await db.updateBooking(req.params.id, { whatsapp_status: wa.status, whatsapp_detail: wa.detail, whatsapp_message_id: wa.messageId || null });
+  res.json({ ok: true, booking: updated });
 });
 
 // ---------- Reviews / inquiries / waitlist / subscriptions ----------
-app.get('/api/reviews', (req, res) => res.json({ ok: true, reviews: load('reviews.json', [
+const SEED_REVIEWS = [
   { name: 'Aisha M.', rating: 5, text: 'Deep clean was perfect — kitchen and bathrooms looked brand new.', service: 'Deep Cleaning' },
   { name: 'Rahul S.', rating: 5, text: 'On time, polite team, great price. Booked weekly now.', service: 'Regular Home Cleaning' },
-  { name: 'Sara K.', rating: 4, text: 'Airbnb turnover was fast and the photos helped a lot.', service: 'Airbnb Turnover' },
-])}));
-app.post('/api/reviews', (req, res) => {
+  { name: 'Sara K.', rating: 5, text: 'Airbnb turnover was fast and the photos helped a lot.', service: 'Airbnb Turnover' },
+];
+app.get('/api/reviews', async (req, res) => res.json({ ok: true, reviews: await db.listReviews(SEED_REVIEWS) }));
+app.post('/api/reviews', async (req, res) => {
   const r = req.body || {}; if (!r.name || !r.text) return res.status(400).json({ ok: false, error: 'Name and review required' });
-  const all = load('reviews.json', []); all.push({ name: r.name, rating: Number(r.rating || 5), text: r.text, service: r.service || '', createdAt: new Date().toISOString() });
-  save('reviews.json', all); res.json({ ok: true });
+  await db.addReview({ name: r.name, rating: Number(r.rating || 5), text: r.text, service: r.service || '', createdAt: new Date().toISOString() });
+  res.json({ ok: true });
 });
-app.post('/api/inquiries', (req, res) => {
-  const all = load('inquiries.json', []); all.push({ ...req.body, id: uid('INQ'), createdAt: new Date().toISOString() }); save('inquiries.json', all);
+app.post('/api/inquiries', async (req, res) => {
+  const body = req.body || {};
+  if (body.kind === 'callback' || body.phone) await db.addCallback({ ...body, id: uid('CB'), createdAt: new Date().toISOString() });
+  else await db.addDoc('inquiry', { ...body, id: uid('INQ'), createdAt: new Date().toISOString() });
   res.json({ ok: true, message: 'Thanks! We will call you back shortly.' });
 });
-app.post('/api/waitlist', (req, res) => {
-  const all = load('waitlist.json', []); all.push({ ...req.body, id: uid('WL'), createdAt: new Date().toISOString() }); save('waitlist.json', all);
+app.post('/api/waitlist', async (req, res) => {
+  await db.addDoc('waitlist', { ...req.body, id: uid('WL'), createdAt: new Date().toISOString() });
   res.json({ ok: true, message: 'Added to the waitlist — we will notify you when a slot opens.' });
 });
-app.post('/api/subscriptions', (req, res) => {
-  const all = load('subscriptions.json', []); all.push({ ...req.body, id: uid('SUB'), status: 'active', createdAt: new Date().toISOString() }); save('subscriptions.json', all);
+app.post('/api/subscriptions', async (req, res) => {
+  await db.addDoc('subscription', { ...req.body, id: uid('SUB'), status: 'active', createdAt: new Date().toISOString() });
   res.json({ ok: true, message: 'Subscription started. You can pause anytime from My Bookings.' });
 });
-app.post('/api/claims', (req, res) => {
-  const all = load('claims.json', []); all.push({ ...req.body, id: uid('CLM'), status: 'open', createdAt: new Date().toISOString() }); save('claims.json', all);
+app.post('/api/claims', async (req, res) => {
+  await db.addDoc('claim', { ...req.body, id: uid('CLM'), status: 'open', createdAt: new Date().toISOString() });
   res.json({ ok: true, message: 'Claim filed. Our team will contact you within 24 hours.' });
 });
 
@@ -180,16 +186,17 @@ app.post('/api/admin/login', (req, res) => {
   const t = token(); sessions.set(t, Date.now()); res.json({ ok: true, token: t });
 });
 app.post('/api/admin/logout', (req, res) => { sessions.delete(req.body?.token || ''); res.json({ ok: true }); });
-app.get('/api/admin/stats', requireAdmin, (req, res) => {
-  const bookings = load('bookings.json', []); const reviews = load('reviews.json', []);
+app.get('/api/admin/stats', requireAdmin, async (req, res) => {
+  const bookings = await db.listBookings(); const reviews = await db.listReviews(SEED_REVIEWS);
   const revenue = bookings.filter(b => b.status !== 'cancelled').reduce((s, b) => s + (b.total || 0), 0);
   res.json({ ok: true, stats: { bookings: bookings.length, revenue, reviews: reviews.length, avgRating: reviews.length ? (reviews.reduce((s, r) => s + (r.rating || 5), 0) / reviews.length).toFixed(1) : '5.0', whatsappSent: bookings.filter(b => b.whatsapp_status === 'sent').length } });
 });
-app.get('/api/admin/bookings', requireAdmin, (req, res) => res.json({ ok: true, bookings: load('bookings.json', []).slice().reverse() }));
-app.post('/api/admin/bookings/:id/status', requireAdmin, (req, res) => {
-  const all = load('bookings.json', []); const b = all.find(x => x.id === req.params.id);
+app.get('/api/admin/bookings', requireAdmin, async (req, res) => res.json({ ok: true, bookings: (await db.listBookings()).slice().reverse() }));
+app.post('/api/admin/bookings/:id/status', requireAdmin, async (req, res) => {
+  const b = await db.getBooking(req.params.id);
   if (!b) return res.status(404).json({ ok: false, error: 'Not found' });
-  b.status = req.body?.status || b.status; save('bookings.json', all); res.json({ ok: true, booking: b });
+  const updated = await db.updateBooking(req.params.id, { status: req.body?.status || b.status });
+  res.json({ ok: true, booking: updated });
 });
 app.get('/api/admin/settings', requireAdmin, (req, res) => res.json({ ok: true, settings: {
   ownerWhatsapp: process.env.OWNER_WHATSAPP || '917876520226',
@@ -198,22 +205,32 @@ app.get('/api/admin/settings', requireAdmin, (req, res) => res.json({ ok: true, 
   template: process.env.WHATSAPP_TEMPLATE || 'booking_notification',
   configured: !!(process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_ACCESS_TOKEN),
 }}));
-app.get('/api/invoice/:id', (req, res) => {
-  const b = load('bookings.json', []).find(x => x.id === req.params.id);
+app.get('/api/invoice/:id', async (req, res) => {
+  const b = await db.getBooking(req.params.id);
   if (!b) return res.status(404).send('Booking not found');
   res.type('html').send(`<html><body style="font-family:sans-serif;padding:32px"><h1>PureNest Clean Co. — Invoice</h1><p>Booking ${b.id} | ${b.name} | ${b.date} ${b.time}</p><p>${b.serviceName} — AED ${b.total}</p><p>Payment: ${b.payment}</p><p><small>By Goyal Kumar</small></p></body></html>`);
 });
-app.get('/api/calendar/:id.ics', (req, res) => {
-  const b = load('bookings.json', []).find(x => x.id === req.params.id.replace('.ics', ''));
+app.get('/api/calendar/:id.ics', async (req, res) => {
+  const b = await db.getBooking(req.params.id.replace('.ics', ''));
   if (!b) return res.status(404).send('Booking not found');
   const dt = (b.date || '2026-11-10').replace(/-/g, '') + 'T100000';
   res.type('text/calendar').send(`BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nUID:${b.id}@purenest\nDTSTART:${dt}\nSUMMARY:PureNest Cleaning - ${b.serviceName}\nLOCATION:${b.address}\nEND:VEVENT\nEND:VCALENDAR`);
 });
 // Staff view (code from env)
-app.post('/api/staff/jobs', (req, res) => {
+app.post('/api/staff/jobs', async (req, res) => {
   if (!process.env.STAFF_CODE || req.body?.code !== process.env.STAFF_CODE) return res.status(401).json({ ok: false, error: 'Wrong staff code' });
-  res.json({ ok: true, jobs: load('bookings.json', []).filter(b => b.status === 'confirmed') });
+  res.json({ ok: true, jobs: (await db.listBookings()).filter(b => b.status === 'confirmed') });
 });
 
-app.get('/health', (req, res) => res.json({ ok: true, service: 'purenest-clean-co' }));
-app.listen(PORT, () => console.log(`PureNest Clean Co. running on http://localhost:${PORT}`));
+app.get('/health', (req, res) => res.json({ ok: true, service: 'purenest-clean-co', db: db.isMongo() ? 'mongodb' : 'json' }));
+module.exports = app; // used by Vercel serverless (api/index.js) — listen only when run directly
+// SPA fallback: React Router handles all non-/api routes (/, /admin, ...)
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api')) return next();
+  const index = path.join(STATIC_DIR, 'index.html');
+  if (fs.existsSync(index)) return res.sendFile(index);
+  next();
+});
+if (require.main === module) {
+  app.listen(PORT, () => console.log(`PureNest Clean Co. running on http://localhost:${PORT}`));
+}
