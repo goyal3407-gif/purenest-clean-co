@@ -1,0 +1,1 @@
+{"author":"Goyal Kumar","dependencies":{"express":"^4.19.2"},"description":"PureNest Clean Co. - Full cleaning services business website by Goyal Kumar","engines":{"node":">=18"},"keywords":["cleaning","booking","business"],"license":"MIT","main":"server.js","name":"purenest-clean-co","scripts":{"dev":"node server.js","start":"node server.js"},"version":"1.0.0"}

@@ -1,0 +1,25 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin — PureNest Clean Co.</title><script src="https://cdn.tailwindcss.com"></script><link rel="stylesheet" href="/styles.css"></head>
+<body><header><div class="nav"><div class="logo">Pure<span>Nest</span> Admin</div><a href="/">← Back to website</a></div></header>
+<main class="wrap">
+<h2>Admin Login</h2>
+<div class="card" id="loginBox"><p>Admin password is set with the <code>ADMIN_PASSWORD</code> environment variable. It is not stored in this repo.</p>
+<input id="adminPass" type="password" placeholder="Admin password"><button class="btn" onclick="login()">Log In</button><p id="loginMsg"></p></div>
+<div id="adminArea" class="hidden">
+<h2>Admin Dashboard</h2><div id="stats" class="card"></div>
+<h3>WhatsApp Auto-Send Settings</h3><div class="card" id="waSettings"><p>WhatsApp credentials come from environment variables: <code>WHATSAPP_PHONE_NUMBER_ID</code>, <code>WHATSAPP_ACCESS_TOKEN</code>, <code>WHATSAPP_TEMPLATE</code>. Owner number: <code>OWNER_WHATSAPP</code> (default 917876520226).</p><p id="waStatus"></p><p>To connect: create a WhatsApp Business app in Meta for Developers, copy the Phone Number ID and a permanent Access Token, set them in <code>.env</code> and restart the server. Bookings will then send automatically; until then they are marked “Not sent — API not connected”.</p></div>
+<h3>Bookings Management</h3><div id="adminBookings"></div>
+<h3>Staff View</h3><p>Cleaners use the staff code (<code>STAFF_CODE</code> env var) to see today's jobs. <button class="btn ghost" onclick="staffJobs()">Load staff jobs</button></p><div id="staffJobs"></div>
+<button class="btn ghost" onclick="logout()">Log Out</button>
+</div></main>
+<footer><div class="wrap"><small>By Goyal Kumar</small></div></footer>
+<script>
+let TOKEN='';
+async function api(p,o={}){const r=await fetch(p,{headers:{'Content-Type':'application/json',Authorization:TOKEN?'Bearer '+TOKEN:''},...o});return r.json();}
+async function login(){const r=await api('/api/admin/login',{method:'POST',body:JSON.stringify({password:document.getElementById('adminPass').value})});if(!r.ok){document.getElementById('loginMsg').textContent=r.error;return;}TOKEN=r.token;document.getElementById('loginBox').classList.add('hidden');document.getElementById('adminArea').classList.remove('hidden');loadAdmin();}
+async function loadAdmin(){const s=await api('/api/admin/stats');document.getElementById('stats').innerHTML=s.ok?`Bookings: ${s.stats.bookings} · Revenue: AED ${s.stats.revenue} · Reviews: ${s.stats.reviews} · Avg rating: ${s.stats.avgRating} · WhatsApp sent: ${s.stats.whatsappSent}`:'Could not load stats';const w=await api('/api/admin/settings');document.getElementById('waStatus').textContent=w.ok?`Configured: ${w.settings.configured} · Owner: ${w.settings.ownerWhatsapp} · Template: ${w.settings.template} · Phone ID: ${w.settings.phoneNumberId||'not set'} · Token: ${w.settings.accessToken||'not set'}`:'';const b=await api('/api/admin/bookings');document.getElementById('adminBookings').innerHTML=(b.bookings||[]).map(x=>`<div class="card"><b>${x.id}</b> ${x.name} — ${x.serviceName} — ${x.date} ${x.time} — AED ${x.total} — ${x.status} — WhatsApp: ${x.whatsapp_status} (${x.whatsapp_detail||''}) <button onclick="setStatus('${x.id}','completed')">Complete</button> <button onclick="setStatus('${x.id}','cancelled')">Cancel</button> <button onclick="resend('${x.id}')">Resend WhatsApp</button></div>`).join('')||'<p>No bookings yet.</p>';}
+async function setStatus(id,st){await api('/api/admin/bookings/'+id+'/status',{method:'POST',body:JSON.stringify({status:st})});loadAdmin();}
+async function resend(id){const r=await api('/api/bookings/'+id+'/resend-whatsapp',{method:'POST',body:'{}'});alert(r.booking?('WhatsApp: '+r.booking.whatsapp_detail):(r.error||'failed'));loadAdmin();}
+async function staffJobs(){const code=prompt('Staff code:');const r=await fetch('/api/staff/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})}).then(x=>x.json());document.getElementById('staffJobs').innerHTML=r.ok?(r.jobs||[]).map(j=>`<div class="card">${j.id} — ${j.serviceName} — ${j.address} — ${j.date} ${j.time}</div>`).join(''):(r.error||'failed');}
+async function logout(){await api('/api/admin/logout',{method:'POST',body:JSON.stringify({token:TOKEN})});location.reload();}
+</script></body></html>
