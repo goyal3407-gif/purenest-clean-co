@@ -2,7 +2,8 @@
   "author": "Goyal Kumar",
   "dependencies": {
     "express": "^4.19.2",
-    "mongoose": "^8.24.8"
+    "mongoose": "^8.24.8",
+    "nodemailer": "^10.4.0"
   },
   "description": "PureNest Clean Co. - Full cleaning services business website by Goyal Kumar",
   "engines": {

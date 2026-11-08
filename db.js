@@ -22,9 +22,10 @@ const bookingSchema = new mongoose.Schema({
   name: String, phone: String, email: String, address: String,
   serviceId: String, serviceName: String, date: String, time: String,
   bedrooms: Number, bathrooms: Number, extras: [String], frequency: String,
-  total: Number, payment: String, status: { type: String, default: 'confirmed' }, notes: String,
+  total: Number, payment: String, status: { type: String, default: 'confirmed' }, notes: String, coupon: String,
   eco: Boolean, allergy: Boolean, senior: Boolean,
   whatsapp_status: String, whatsapp_detail: String, whatsapp_message_id: String,
+  email_status: { type: String, default: 'not_configured' }, email_detail: String,
 }, { timestamps: false });
 const reviewSchema = new mongoose.Schema({
   name: String, rating: Number, text: String, service: String, createdAt: String,

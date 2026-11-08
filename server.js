@@ -12,6 +12,7 @@ const PORT = process.env.PORT || 3000;
 const DATA = path.join(__dirname, 'data');
 fs.mkdirSync(DATA, { recursive: true });
 const db = require('./db');
+const emailer = require('./server/email');
 // NOTE: do NOT call db.connect() fire-and-forget here. On Vercel each
 // request can be a fresh serverless container, so a background connect
 // races every handler and always loses — /health then always reports
@@ -121,9 +122,20 @@ app.post('/api/bookings', async (req, res) => {
     extras: Array.isArray(b.extras) ? b.extras.filter((x) => typeof x === 'string').slice(0, 20) : [], frequency: b.frequency || 'one-time', total,
     payment: b.payment || 'cash', status: 'confirmed', notes: b.notes || '', coupon: String(b.coupon || '').trim().toUpperCase() || '',
     eco: !!b.eco, allergy: !!b.allergy, senior: !!b.senior, whatsapp_status: 'pending', whatsapp_detail: '', whatsapp_message_id: null,
+    email_status: 'not_configured', email_detail: '',
   };
   const wa = await sendWhatsApp(booking);
   booking.whatsapp_status = wa.status; booking.whatsapp_detail = wa.detail; booking.whatsapp_message_id = wa.messageId || null;
+  // Booking emails (customer confirmation + owner alert). Email must never
+  // fail the booking: sendBookingEmails catches all errors and returns a
+  // status, and the booking is saved regardless of the result.
+  try {
+    const em = await emailer.sendBookingEmails(booking);
+    booking.email_status = em.status; booking.email_detail = em.detail || '';
+  } catch (e) {
+    booking.email_status = 'failed'; booking.email_detail = String((e && e.message) || e).slice(0, 300);
+    console.error('Booking email failed (booking still saved):', booking.email_detail);
+  }
   await db.saveBooking(booking);
   res.json({ ok: true, booking: { ...booking, accessToken: booking.accessToken } });
   } catch (e) { console.error('POST /api/bookings failed:', e.message); res.status(500).json({ ok: false, error: 'Could not save booking, please try again' }); }
@@ -147,6 +159,13 @@ app.post('/api/bookings/:id/resend-whatsapp', requireAdmin, ah(async (req, res) 
   const updated = await db.updateBooking(req.params.id, { whatsapp_status: wa.status, whatsapp_detail: wa.detail, whatsapp_message_id: wa.messageId || null });
   res.json({ ok: true, booking: updated });
 }));
+app.post('/api/bookings/:id/resend-email', requireAdmin, ah(async (req, res) => {
+  const b = await db.getBooking(req.params.id);
+  if (!b) return res.status(404).json({ ok: false, error: 'Booking not found' });
+  const em = await emailer.sendBookingEmails(b);
+  const updated = await db.updateBooking(req.params.id, { email_status: em.status, email_detail: em.detail || '' });
+  res.json({ ok: true, booking: updated });
+}));
 
 // ---------- Reviews / inquiries / waitlist / subscriptions ----------
 const SEED_REVIEWS = [
@@ -163,12 +182,15 @@ app.post('/api/reviews', ah(async (req, res) => {
 }));
 app.post('/api/inquiries', ah(async (req, res) => {
   const body = req.body || {};
-  if (body.kind === 'callback' || body.phone) await db.addCallback({ ...body, id: uid('CB'), createdAt: new Date().toISOString() });
-  else await db.addDoc('inquiry', { ...body, id: uid('INQ'), createdAt: new Date().toISOString() });
+  const doc = { ...body, id: uid(body.kind === 'callback' || body.phone ? 'CB' : 'INQ'), createdAt: new Date().toISOString() };
+  if (body.kind === 'callback' || body.phone) { await db.addCallback(doc); try { await emailer.sendCallbackEmails(doc); } catch (e) { console.error('Callback email failed:', e.message); } }
+  else { await db.addDoc('inquiry', doc); try { await emailer.sendCallbackEmails(doc); } catch (e) { console.error('Inquiry email failed:', e.message); } }
   res.json({ ok: true, message: 'Thanks! We will call you back shortly.' });
 }));
 app.post('/api/waitlist', ah(async (req, res) => {
-  await db.addDoc('waitlist', { ...req.body, id: uid('WL'), createdAt: new Date().toISOString() });
+  const doc = { ...req.body, id: uid('WL'), createdAt: new Date().toISOString() };
+  await db.addDoc('waitlist', doc);
+  try { await emailer.sendWaitlistEmails(doc); } catch (e) { console.error('Waitlist email failed:', e.message); }
   res.json({ ok: true, message: 'Added to the waitlist — we will notify you when a slot opens.' });
 }));
 app.post('/api/subscriptions', ah(async (req, res) => {
@@ -247,6 +269,8 @@ app.get('/api/admin/settings', requireAdmin, (req, res) => res.json({ ok: true, 
   accessToken: process.env.WHATSAPP_ACCESS_TOKEN ? '*** set ***' : '',
   template: process.env.WHATSAPP_TEMPLATE || 'booking_notification',
   configured: !!(process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_ACCESS_TOKEN),
+  emailConfigured: emailer.isConfigured(),
+  emailUser: process.env.GMAIL_USER ? '*** set ***' : '',
 }}));
 app.get('/api/invoice/:id', ah(async (req, res) => {
   const b = await db.getBooking(req.params.id);
